@@ -25,7 +25,7 @@
 **Windows:**
 ```bash
 python -m venv venv
-source venv/Scripts/activate
+가상환경 venv/Scripts/activate
 # 또는
 .\venv\Scripts\activate
 
@@ -34,5 +34,3 @@ source venv/Scripts/activate
 Bash
 
 pip install -r requirements.txt
-
-pair Programming!!
