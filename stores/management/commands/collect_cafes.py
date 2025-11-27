@@ -2,6 +2,7 @@
 
 import requests
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from stores.models import NearbyStore
 
 # 👇 이 줄이 없어서 에러가 난 겁니다! (지우지 마세요)
@@ -12,7 +13,7 @@ class Command(BaseCommand):
         # ==========================================
         # 1. 설정 (키 입력 필수!)
         # ==========================================
-        KAKAO_API_KEY = "" 
+        KAKAO_API_KEY = settings.KAKAO_API_KEY
         
         # 키가 없는 경우를 대비한 방어 코드
         if not KAKAO_API_KEY or "키를_여기에" in KAKAO_API_KEY:
