@@ -34,3 +34,5 @@ source venv/Scripts/activate
 Bash
 
 pip install -r requirements.txt
+
+pair Programming
