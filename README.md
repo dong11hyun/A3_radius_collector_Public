@@ -25,8 +25,7 @@
 **Windows:**
 ```bash
 python -m venv venv
-가상환경 venv/Scripts/activate
-# 또는
+가상환경
 .\venv\Scripts\activate
 
 가상환경이 켜진 상태(괄호로 (venv)가 보이는 상태)에서 패키지를 설치합니다.
@@ -34,3 +33,8 @@ python -m venv venv
 Bash
 
 pip install -r requirements.txt
+
+
++ env
++ python manage.py migrate
++ python manage.py createsuperuser
