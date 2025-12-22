@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>다이소 상권 지도</title>
+    <style>
+        #map { width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
+
+<script>
+    // 1. 지도 생성
+    var mapContainer = document.getElementById('map'); 
+    var mapOption = { 
+        center: new kakao.maps.LatLng(37.498095, 127.027610), // 기본 중심좌표 (강남역 부근)
+        level: 4 // 지도의 확대 레벨
+    };
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+
+    // 2. Django에서 넘겨받은 데이터 (JSON)
+    var stores = {{ store_json|safe }};
+
+    // 3. 마커 생성 루프
+    stores.forEach(function(store) {
+        var markerPosition  = new kakao.maps.LatLng(store.lat, store.lng); 
+
+        var marker = new kakao.maps.Marker({
+            position: markerPosition,
+            title: store.name // 마우스를 올리면 상호명이 나옴
+        });
+
+        marker.setMap(map);
+        
+        // (선택) 인포윈도우로 상호명 표시
+        var iwContent = '<div style="padding:5px;">' + store.name + '</div>';
+        var infowindow = new kakao.maps.InfoWindow({
+            content : iwContent
+        });
+        
+        // 마커 클릭 시 인포윈도우 열기
+        kakao.maps.event.addListener(marker, 'click', function() {
+            infowindow.open(map, marker);
+        });
+    });
+</script>
+
+</body>
+</html>

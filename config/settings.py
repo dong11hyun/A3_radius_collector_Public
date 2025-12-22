@@ -124,5 +124,8 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-# Kakao API Key 가져온다
+# Kakao API Key (REST)
 KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
+
+# Kakao JS Key (지도 표시용 - 화면에 보여줄 때 사용)
+KAKAO_JS_KEY = os.getenv("KAKAO_JS_KEY")

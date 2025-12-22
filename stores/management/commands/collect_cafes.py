@@ -104,7 +104,9 @@ class Command(BaseCommand):
                                 name=item['place_name'],
                                 address=item['road_address_name'],
                                 phone=item['phone'],
-                                distance=int(item['distance'])
+                                distance=int(item['distance']),
+                                lat=float(item['y']), #위도
+                                lng=float(item['x'])  #경도
                             )
                             total_saved += 1
                             collected_count += 1

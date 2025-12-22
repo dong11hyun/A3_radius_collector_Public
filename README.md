@@ -33,7 +33,7 @@ git clone [Repository URL]
 
 - py manage.py runserver
 ```
-### 3. (중요) 환경변수 설정 (.env 파일 생성)
+### 3. (중요) 환경변수 설정 **(.env 파일 생성)**
 ### KAKAO_API_KEY=your_kakao_rest_api_key
 
 Kakao API Key 입력 위치
@@ -44,6 +44,7 @@ Kakao API Key 입력 위치
 - .env 파일 생성: 프로젝트의 최상위 폴더에 .env라는 이름의 파일을 생성
 
 `KAKAO_API_KEY=발급받은_카카오_REST_API_키_여기에_입력`
+`KAKAO_JS_KEY=발급받은_카카오_JS_키_여기에_입력`
 
 - **작동 원리:**
 
@@ -55,6 +56,6 @@ collect_cafes.py에서는 settings.KAKAO_API_KEY를 통해 이 값을 사용하�
 
 ### 데이터 수집 실행
 
-- 수집 커맨드 실행
+- 수집 커맨드 실행 (manage.py 폴더 있는곳에서)
 
 **`python manage.py collect_cafes`**

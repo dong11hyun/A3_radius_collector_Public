@@ -10,6 +10,9 @@ class NearbyStore(models.Model):
     phone = models.CharField(max_length=50, null=True, blank=True) # 전화번호
     distance = models.IntegerField()              # 거리(m)
     
+    lat = models.FloatField(default=0.0) # 위도 (y)
+    lng = models.FloatField(default=0.0) # 경도 (x)
+
     created_at = models.DateTimeField(auto_now_add=True) # 수집 날짜
 
     def __str__(self):
