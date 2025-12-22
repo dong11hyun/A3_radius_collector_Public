@@ -46,6 +46,17 @@ Kakao API Key 입력 위치
 `KAKAO_API_KEY=발급받은_카카오_REST_API_키_여기에_입력`
 `KAKAO_JS_KEY=발급받은_카카오_JS_키_여기에_입력`
 
+---
+### 혹시라도 db폴더 꼬였다면 <sqlite3 삭제후 다시만들기>
+> db.sqlite3 파일 삭제
+
+> migrations/ 폴더 안으로 > 0001_initial.py 등 숫자가 붙은 파일들을 모두 삭제
+> ⚠️ 주의: _init_.py 파일과 migrations 폴더 자체는 지우면 안됨
+
+> `python manage.py makemigrations`
+> `python manage.py migrate`
+> `python manage.py createsuperuser`
+
 - **작동 원리:**
 
 settings.py 파일의 load_dotenv(BASE_DIR / '.env') 코드가 이 파일을 읽어옵니다
