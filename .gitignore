@@ -1,6 +1,6 @@
 # .gitignore 내용
 
-# 1. 가상환경 폴더 (용량이 너무 크고, 동료는 requirements.txt로 설치하면 됨)
+# 1. 가상환경 폴더 (보안 및 용량으로 업로드 제외, requirements.txt로 설치하면 됨)
 venv/
 env/
 .env

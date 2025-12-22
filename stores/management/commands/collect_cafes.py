@@ -14,7 +14,7 @@ class Command(BaseCommand):
         KAKAO_API_KEY = getattr(settings, 'KAKAO_API_KEY', None)
 
         # 방어 코드: 키가 없는 경우
-        if not KAKAO_API_KEY or "키를_여기에" in KAKAO_API_KEY:
+        if not KAKAO_API_KEY:
             self.stdout.write(self.style.ERROR("❌ API 키가 설정되지 않았습니다! settings.py를 확인해주세요."))
             return
 
