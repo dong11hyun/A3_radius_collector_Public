@@ -102,6 +102,7 @@ class Command(BaseCommand):
                             NearbyStore.objects.create(
                                 base_daiso=daiso_name, # 기준 다이소 이름 저장
                                 name=item['place_name'],
+                                category=cat_name,  # (편의점, 카페 등 들어감)
                                 address=item['road_address_name'],
                                 phone=item['phone'],
                                 distance=int(item['distance']),

@@ -69,4 +69,5 @@ collect_cafes.py에서는 settings.KAKAO_API_KEY를 통해 이 값을 사용하�
 
 - 수집 커맨드 실행 (manage.py 폴더 있는곳에서)
 
-**`python manage.py collect_cafes`**
+**`python manage.py collect_cafes`**  데이터 수집 및 저장
+**`python manage.py analyze_stores`** 데이터 분석, 상권점수 산출

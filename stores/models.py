@@ -6,6 +6,7 @@ class NearbyStore(models.Model):
     
     # 수집된 매장 정보
     name = models.CharField(max_length=100)       # 상호명
+    category = models.CharField(max_length=50, default='') # 업종 (카페, 편의점 등)
     address = models.CharField(max_length=200)    # 주소
     phone = models.CharField(max_length=50, null=True, blank=True) # 전화번호
     distance = models.IntegerField()              # 거리(m)
