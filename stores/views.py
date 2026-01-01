@@ -4,8 +4,8 @@ from .models import NearbyStore
 import json
 
 def map_view(request):
-    # 1. DB에서 데이터 가져오기 (100개 제한)
-    stores = NearbyStore.objects.all()[:100]
+    # 1. DB에서 데이터 가져오기
+    stores = NearbyStore.objects.all()
 
     # 2. JSON 변환을 위한 리스트 만들기
     stores_list = []
