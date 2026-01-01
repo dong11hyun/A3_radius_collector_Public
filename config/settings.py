@@ -28,7 +28,7 @@ SECRET_KEY = "django-insecure-9gg@2u1-zwpbv$7o#a%)#x(d^g7g241v(y54&p6tqi&!n*xygs
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'django.contrib.gis',  # PostGIS 추가
     "stores",
 ]
 
@@ -77,9 +78,13 @@ WSGI_APPLICATION = "config.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': 'radius_collector',  # DB 이름
+        'USER': 'postgres',          # PostgreSQL 사용자 ID (기본값: postgres)
+        'PASSWORD': 'test1234',      # 비밀번호
+        'HOST': 'db',         # 로컬에서 실행 중이라면 localhost/ 도커면 db
+        'PORT': '5432',              # PostgreSQL 기본 포트
     }
 }
 

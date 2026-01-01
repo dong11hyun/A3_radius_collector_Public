@@ -4,20 +4,25 @@ from .models import NearbyStore
 import json
 
 def map_view(request):
-    stores = NearbyStore.objects.all()
-    
-    # 자바스크립트에서 쓰기 편하게 리스트로 변환
-    store_list = []
+    # 1. DB에서 데이터 가져오기 (100개 제한)
+    stores = NearbyStore.objects.all()[:100]
+
+    # 2. JSON 변환을 위한 리스트 만들기
+    stores_list = []
     for store in stores:
-        store_list.append({
+        stores_list.append({
             'name': store.name,
-            'lat': store.lat,
-            'lng': store.lng,
-            'category': store.base_daiso  # 혹은 다른 카테고리 정보
+            'lat': store.location.y,  # PointField에서 위도 추출
+            'lng': store.location.x,  # PointField에서 경도 추출
+            'category': store.category,
         })
 
+    # 3. 데이터 포장
     context = {
-        'store_json': json.dumps(store_list), # JSON 형태로 변환해서 전달
-        'kakao_js_key': settings.KAKAO_JS_KEY,
+        # 자바스크립트로 보낼 데이터 (한글 깨짐 방지 처리)
+        'stores_json': json.dumps(stores_list, ensure_ascii=False),
+        # API 키를 settings.py에서 가져오거나, 여기에 직접 문자열로 넣어도 됨
+        'kakao_js_key': settings.KAKAO_JS_KEY, 
     }
+    
     return render(request, 'map.html', context)

@@ -21,5 +21,6 @@ from stores.views import map_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("map/", map_view, name="map_view"), # 👈 주소 추가 (http://127.0.0.1:8000/map/)
+    path("map/", map_view, name="map_view"), 
+    #  주소 추가 (http://127.0.0.1:8000/map/)
 ]

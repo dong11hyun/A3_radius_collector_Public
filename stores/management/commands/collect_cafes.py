@@ -3,9 +3,10 @@ import time
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from stores.models import NearbyStore
+from django.contrib.gis.geos import Point  # ★ Point 객체 필수 임포트
 
 class Command(BaseCommand):
-    help = '여러 다이소 지점 주변의 다양한 상권(카페, 편의점, 마트 등) 데이터를 수집합니다.'
+    help = '여러 다이소 지점 주변의 다양한 상권(카페, 편의점, 마트 등) 데이터를 수집하여 PostGIS에 저장합니다.'
 
     def handle(self, *args, **kwargs):
         # ==========================================
@@ -21,27 +22,26 @@ class Command(BaseCommand):
         HEADERS = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
 
         # ==========================================
-        # 2. 조사할 타겟 리스트 (원하는 만큼 추가하세요!)
+        # 2. 조사할 타겟 리스트
         # ==========================================
         DAISO_TARGETS = [
             "다이소 강남본점",
-            "다이소 홍대점",
+            "다이소 홍대2호점",
             "다이소 부산서면점",
             "다이소 대전둔산점",
-            # 엑셀에서 복사해서 여기에 계속 추가하면 됩니다.
+            # 필요한 지점 계속 추가...
         ]
 
         # ==========================================
-        # 3. 수집할 업종 리스트 (코드표 참고)
+        # 3. 수집할 업종 리스트
         # ==========================================
-        # CS2: 편의점, MT1: 대형마트, CE7: 카페, SW8: 지하철역
         TARGET_CATEGORIES = {
             "CS2": "편의점",
             "MT1": "대형마트",
             "CE7": "카페"
         }
 
-        self.stdout.write(self.style.WARNING(f"🚀 총 {len(DAISO_TARGETS)}개 다이소 지점 분석을 시작합니다..."))
+        self.stdout.write(self.style.WARNING(f"🚀 총 {len(DAISO_TARGETS)}개 다이소 지점 분석을 시작합니다... (PostGIS 저장)"))
 
         # ----------------------------------------------------
         # [Loop 1] 다이소 지점별 반복
@@ -60,7 +60,7 @@ class Command(BaseCommand):
                     continue
                 
                 place = resp_loc.json()['documents'][0]
-                x, y = place['x'], place['y']
+                daiso_x, daiso_y = place['x'], place['y'] # 중심점 좌표
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"   ❌ 에러 발생: {e}"))
                 continue
@@ -69,18 +69,17 @@ class Command(BaseCommand):
             # [Loop 2] 업종별 반복 (편의점 -> 마트 -> 카페)
             # ----------------------------------------------------
             for cat_code, cat_name in TARGET_CATEGORIES.items():
-                # self.stdout.write(f"   👉 {cat_name}({cat_code}) 탐색 중...")
                 
                 url_cat = "https://dapi.kakao.com/v2/local/search/category.json"
                 page = 1
                 collected_count = 0
                 
-                # [Loop 3] 페이지 넘기기 (최대 3페이지/45개 까지 - 카카오 제한)
+                # [Loop 3] 페이지 넘기기
                 while page <= 3:
                     params_cat = {
                         "category_group_code": cat_code,
-                        "x": x,
-                        "y": y,
+                        "x": daiso_x,
+                        "y": daiso_y,
                         "radius": 1000, # 반경 1km
                         "sort": "distance",
                         "size": 15,
@@ -97,17 +96,22 @@ class Command(BaseCommand):
                     
                     # DB 저장
                     for item in documents:
-                        # 중복 방지 (이름과 주소가 같으면 저장 안 함)
+                        # 중복 방지 체크
                         if not NearbyStore.objects.filter(name=item['place_name'], address=item['road_address_name']).exists():
+                            
+                            # ★ 핵심 변경 사항: Point 객체 생성
+                            # item['x'] = 경도(Longitude), item['y'] = 위도(Latitude)
+                            # 반드시 Point(경도, 위도) 순서로 넣어야 함!
+                            point_location = Point(float(item['x']), float(item['y']))
+
                             NearbyStore.objects.create(
-                                base_daiso=daiso_name, # 기준 다이소 이름 저장
+                                base_daiso=daiso_name,
                                 name=item['place_name'],
-                                category=cat_name,  # (편의점, 카페 등 들어감)
+                                category=cat_name,
                                 address=item['road_address_name'],
                                 phone=item['phone'],
                                 distance=int(item['distance']),
-                                lat=float(item['y']), #위도
-                                lng=float(item['x'])  #경도
+                                location=point_location  # ★ 위도/경도 숫자 대신 Point 객체 저장
                             )
                             total_saved += 1
                             collected_count += 1
@@ -117,8 +121,8 @@ class Command(BaseCommand):
                         break
                     
                     page += 1
-                    time.sleep(0.2) # API 예의 지키기
+                    time.sleep(0.2) 
 
                 print(f"      - {cat_name}: {collected_count}개 발견")
 
-        self.stdout.write(self.style.SUCCESS(f"\n🎉 모든 작업 완료! 총 {total_saved}개의 데이터가 새로 저장되었습니다."))
+        self.stdout.write(self.style.SUCCESS(f"\n🎉 모든 작업 완료! 총 {total_saved}개의 데이터가 PostGIS에 저장되었습니다."))

@@ -1,53 +1,71 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>다이소 상권 지도</title>
     <style>
-        #map { width: 100%; height: 100vh; }
+        /* 100vh가 화면 꽉 채우기에 더 좋습니다 */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
     </style>
 </head>
+
 <body>
 
-<div id="map"></div>
+    <div id="map"></div>
 
-<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
 
-<script>
-    // 1. 지도 생성
-    var mapContainer = document.getElementById('map'); 
-    var mapOption = { 
-        center: new kakao.maps.LatLng(37.498095, 127.027610), // 기본 중심좌표 (강남역 부근)
-        level: 4 // 지도의 확대 레벨
-    };
-    var map = new kakao.maps.Map(mapContainer, mapOption);
+    <script>
+        // 1. Django 데이터를 안전하게 가져오기 (표준 방식)
+        // views.py의 context 변수명 'stores_json'과 일치해야 합니다.
+        var stores = JSON.parse('{{ stores_json|escapejs }}');
 
-    // 2. Django에서 넘겨받은 데이터 (JSON)
-    var stores = {{ store_json|safe }};
+        // 2. 지도 생성
+        var mapContainer = document.getElementById('map');
+        var mapOption = {
+            center: new kakao.maps.LatLng(37.498095, 127.027610), // 기본: 강남
+            level: 4
+        };
+        var map = new kakao.maps.Map(mapContainer, mapOption);
 
-    // 3. 마커 생성 루프
-    stores.forEach(function(store) {
-        var markerPosition  = new kakao.maps.LatLng(store.lat, store.lng); 
+        // 3. 마커 생성 반복문
+        stores.forEach(function (store) {
+            var markerPosition = new kakao.maps.LatLng(store.lat, store.lng);
 
-        var marker = new kakao.maps.Marker({
-            position: markerPosition,
-            title: store.name // 마우스를 올리면 상호명이 나옴
+            var marker = new kakao.maps.Marker({
+                position: markerPosition,
+                title: store.name
+            });
+
+            marker.setMap(map);
+
+            // 인포윈도우 (이름 + 카테고리)
+            var iwContent = '<div style="padding:5px; font-size:14px;">' +
+                '<strong>' + store.name + '</strong><br>' +
+                '<span style="color:grey; font-size:12px;">' + store.category + '</span>' +
+                '</div>';
+
+            var infowindow = new kakao.maps.InfoWindow({
+                content: iwContent,
+                removable: true // 닫기 버튼 추가
+            });
+
+            // 클릭 이벤트
+            kakao.maps.event.addListener(marker, 'click', function () {
+                infowindow.open(map, marker);
+            });
         });
-
-        marker.setMap(map);
-        
-        // (선택) 인포윈도우로 상호명 표시
-        var iwContent = '<div style="padding:5px;">' + store.name + '</div>';
-        var infowindow = new kakao.maps.InfoWindow({
-            content : iwContent
-        });
-        
-        // 마커 클릭 시 인포윈도우 열기
-        kakao.maps.event.addListener(marker, 'click', function() {
-            infowindow.open(map, marker);
-        });
-    });
-</script>
+    </script>
 
 </body>
+
 </html>
