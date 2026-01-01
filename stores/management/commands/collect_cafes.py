@@ -11,7 +11,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         KAKAO_API_KEY = getattr(settings, 'KAKAO_API_KEY', None)
         if not KAKAO_API_KEY:
-            self.stdout.write(self.style.ERROR("❌ API 키가 없습니다."))
+            self.stdout.write(self.style.ERROR("API 키가 없습니다."))
             return
 
         HEADERS = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
@@ -82,7 +82,7 @@ class Command(BaseCommand):
                             new_saved_count += 1
                             total_new_saved += 1
                     
-                    # ✅ 여기서 "0개 저장됨(이미 있음)" 인지 "0개 발견됨(검색실패)" 인지 구분 가능
+                    #  여기서 "0개 저장됨(이미 있음)" 인지 "0개 발견됨(검색실패)" 인지 구분 가능
                     if found_count > 0:
                         msg = f"   - {cat_name}: {found_count}개 발견 -> {new_saved_count}개 신규 저장"
                         if new_saved_count == 0:
