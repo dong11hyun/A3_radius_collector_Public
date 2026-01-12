@@ -1,11 +1,10 @@
-
 services:
   # 1. Django 서비스
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app  # 코드 수정 시 바로 반영되도록 연결
+      - .:/app # 코드 수정 시 바로 반영되도록 연결
     ports:
       - "8000:8000"
     depends_on:
@@ -20,6 +19,8 @@ services:
       - POSTGRES_DB=radius_collector
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=test1234
+    ports:
+      - "5433:5432" # 로컬 PostgreSQL과 충돌 방지를 위해 5433
 
 volumes:
   postgres_data:
