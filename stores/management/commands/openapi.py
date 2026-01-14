@@ -3,6 +3,7 @@
 - Open API에서 페이지네이션으로 전체 데이터 수집
 - 편의점만 필터링하여 PostgreSQL에 저장
 """
+import os
 import requests
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
@@ -12,9 +13,10 @@ from stores.models import SeoulRestaurantLicense
 class Command(BaseCommand):
     help = '서울시 영등포구 휴게음식점 인허가 정보에서 편의점만 수집하여 DB에 저장'
 
-    # API 설정
-    API_KEY = '78734e43486a6f6e37377950477350'
+    # API 설정 (.env에서 로드)
+    API_KEY = os.environ.get('SEOUL_OPENAPI_KEY', '')
     SERVICE_NAME = 'LOCALDATA_072405_YD'
+
     BASE_URL = 'http://openAPI.seoul.go.kr:8088'
     PAGE_SIZE = 1000  # 한 번에 가져올 최대 건수
     
