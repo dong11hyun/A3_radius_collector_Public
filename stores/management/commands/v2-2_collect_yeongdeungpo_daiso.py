@@ -19,10 +19,10 @@ from stores.models import YeongdeungpoDaiso
 
 # 영등포구 경계 좌표 (대략적인 사각형)
 YEONGDEUNGPO_BOUNDS = {
-    'min_lat': 37.507,  # 남쪽 (신길동 방향)
-    'max_lat': 37.545,  # 북쪽 (여의도 방향)
-    'min_lng': 126.876,  # 서쪽 (양평동 방향)
-    'max_lng': 126.944,  # 동쪽 (영등포동 방향)
+    'min_lat': 37.490,  # 남쪽 (대림동 최남단 포함)
+    'max_lat': 37.545,  # 북쪽 (여의도)
+    'min_lng': 126.876,  # 서쪽 (양평동)
+    'max_lng': 126.944,  # 동쪽 (영등포동)
 }
 
 # 주변 구 이름 (제외 대상)
