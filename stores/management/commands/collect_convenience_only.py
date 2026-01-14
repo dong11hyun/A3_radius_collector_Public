@@ -1,7 +1,11 @@
 # stores/management/commands/collect_convenience_only.py
 """
-영등포구 다이소 기준 편의점만 수집하는 커맨드
-기존 collect_nearby_stores.py와 달리 카페(CE7)는 제외하고 편의점(CS2)만 수집
+영등포구 다이소 기준 편의점만 수집하는 커맨드 (개선판)
+
+핵심 개선사항:
+1. 엄격한 영등포구 주소 필터링
+2. 불필요한 다른 구 편의점 제외
+3. 수집 결과 상세 통계
 """
 
 import os
@@ -13,8 +17,12 @@ from django.conf import settings
 from stores.models import YeongdeungpoDaiso, YeongdeungpoConvenience
 
 
+# 주변 구 이름 (제외 대상)
+EXCLUDED_GU = ['구로구', '금천구', '양천구', '관악구', '동작구', '서초구', '마포구', '용산구']
+
+
 class Command(BaseCommand):
-    help = '영등포구 다이소 기준 편의점만 수집합니다. (카페 제외)'
+    help = '영등포구 다이소 기준 편의점만 수집합니다. (엄격한 영등포구 필터링)'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -28,6 +36,32 @@ class Command(BaseCommand):
             default='영등포구',
             help='대상 구 (기본: 영등포구)'
         )
+        parser.add_argument(
+            '--clear',
+            action='store_true',
+            help='기존 편의점 데이터 삭제 후 재수집'
+        )
+        parser.add_argument(
+            '--radius',
+            type=float,
+            default=1.0,
+            help='탐색 반경 (km, 기본: 1.0)'
+        )
+
+    def is_strictly_yeongdeungpo(self, address):
+        """
+        주소가 정확히 영등포구인지 확인 (엄격한 필터)
+        """
+        if not address:
+            return False
+        
+        # 다른 구 이름이 포함되면 제외
+        for gu in EXCLUDED_GU:
+            if gu in address:
+                return False
+        
+        # 영등포구가 반드시 포함되어야 함
+        return '영등포구' in address
 
     def handle(self, *args, **options):
         # API 키 설정 (우선순위: 인자 > settings > 환경변수)
@@ -49,8 +83,14 @@ class Command(BaseCommand):
         TARGET_CATEGORIES = ['CS2']  # CS2: 편의점
         
         target_gu = options['gu']
+        radius_km = options['radius']
         
-        # 영등포구 다이소 전체 조회 (이미 영등포구만 저장됨)
+        # 기존 데이터 삭제 옵션
+        if options['clear']:
+            deleted_count = YeongdeungpoConvenience.objects.all().delete()[0]
+            self.stdout.write(self.style.WARNING(f"기존 편의점 데이터 {deleted_count}개 삭제"))
+        
+        # 영등포구 다이소 전체 조회
         daiso_list = YeongdeungpoDaiso.objects.all()
         total_daiso_count = daiso_list.count()
         
@@ -63,12 +103,14 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"총 {total_daiso_count}개의 {target_gu} 다이소에 대해 편의점 수집을 시작합니다."
         ))
+        self.stdout.write(f"탐색 반경: {radius_km}km")
 
-        # 1km 근사치 (위도/경도 차이)
-        DELTA_LAT = 0.0090  
-        DELTA_LNG = 0.0113 
+        # 반경에 따른 위도/경도 차이 계산 (근사치)
+        DELTA_LAT = 0.0090 * radius_km  
+        DELTA_LNG = 0.0113 * radius_km
 
         total_collected = 0
+        total_skipped = 0
         
         for idx, daiso in enumerate(daiso_list, 1):
             if not daiso.location:
@@ -92,6 +134,7 @@ class Command(BaseCommand):
             ]
 
             stored_count = 0
+            skipped_count = 0
 
             for category_code in TARGET_CATEGORIES:
                 for rect in quadrants:
@@ -129,6 +172,13 @@ class Command(BaseCommand):
 
                         for item in documents:
                             try:
+                                # [핵심] 영등포구 엄격 필터링
+                                address = item.get('road_address_name') or item.get('address_name', '')
+                                
+                                if not self.is_strictly_yeongdeungpo(address):
+                                    skipped_count += 1
+                                    continue
+                                
                                 lng = float(item.get('x'))
                                 lat = float(item.get('y'))
                                 point = Point(lng, lat)
@@ -139,7 +189,7 @@ class Command(BaseCommand):
                                     place_id=item.get('id'),
                                     defaults={
                                         'name': item.get('place_name'),
-                                        'address': item.get('road_address_name') or item.get('address_name'),
+                                        'address': address,
                                         'phone': item.get('phone'),
                                         'location': point,
                                         'distance': dist,
@@ -160,15 +210,29 @@ class Command(BaseCommand):
                         
                         time.sleep(0.2)
 
-            self.stdout.write(f"  -> {stored_count}개 편의점 저장")
+            self.stdout.write(f"  -> {stored_count}개 저장, {skipped_count}개 스킵 (영등포구 아님)")
             total_collected += stored_count
+            total_skipped += skipped_count
             time.sleep(0.3)
 
         # 최종 통계
-        self.stdout.write(self.style.SUCCESS(f"\n--- 수집 완료 ---"))
-        self.stdout.write(f"  ✅ 수집된 편의점: {total_collected}개")
-        
-        # 데이터 확인
         convenience_count = YeongdeungpoConvenience.objects.count()
-        self.stdout.write(f"\n📊 현재 DB 상태:")
-        self.stdout.write(f"  - 영등포구 편의점: {convenience_count}개")
+        
+        # 영등포구 외 데이터 확인
+        wrong_gu_count = sum(1 for c in YeongdeungpoConvenience.objects.all() 
+                           if not self.is_strictly_yeongdeungpo(c.address))
+        
+        self.stdout.write(self.style.SUCCESS(f"""
+--- 수집 완료 ---
+  ✅ 이번 수집: {total_collected}개
+  ⚠️ 스킵 (영등포구 아님): {total_skipped}개
+
+📊 현재 DB 상태:
+  - 영등포구 편의점: {convenience_count}개
+  - 영등포구 외 데이터: {wrong_gu_count}개
+        """))
+        
+        if wrong_gu_count > 0:
+            self.stdout.write(self.style.WARNING(
+                f"⚠️ 영등포구 아닌 편의점 {wrong_gu_count}개가 DB에 있습니다."
+            ))
