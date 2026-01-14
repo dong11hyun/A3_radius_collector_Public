@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DaisoStore, NearbyStore
+from .models import DaisoStore, NearbyStore, YeongdeungpoDaiso, YeongdeungpoConvenience
 
 # 1. 다이소 매장 관리 (기존 유지 + 보완)
 @admin.register(DaisoStore)
@@ -65,3 +65,43 @@ class NearbyStoreAdmin(admin.ModelAdmin):
     def category_badge(self, obj):
         return obj.category
     category_badge.short_description = "분류"
+
+
+# 3. 영등포구 다이소 관리
+@admin.register(YeongdeungpoDaiso)
+class YeongdeungpoDaisoAdmin(admin.ModelAdmin):
+    list_display = ('name', 'daiso_id', 'address', 'display_coordinates', 'created_at')
+    search_fields = ('name', 'address', 'daiso_id')
+    list_filter = ('created_at',)
+    list_per_page = 50
+
+    def display_coordinates(self, obj):
+        if obj.location:
+            return f"({obj.location.x:.6f}, {obj.location.y:.6f})"
+        return "-"
+    display_coordinates.short_description = "좌표"
+
+
+# 4. 영등포구 편의점 관리
+@admin.register(YeongdeungpoConvenience)
+class YeongdeungpoConvenienceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'distance_display', 'base_daiso', 'address', 'display_coordinates')
+    search_fields = ('name', 'address', 'base_daiso')
+    list_filter = ('base_daiso', 'created_at')
+    list_per_page = 50
+
+    def distance_display(self, obj):
+        if obj.distance is not None:
+            if obj.distance < 1000:
+                return f"{obj.distance}m"
+            else:
+                return f"{obj.distance / 1000:.2f}km"
+        return "-"
+    distance_display.short_description = "거리"
+    distance_display.admin_order_field = 'distance'
+
+    def display_coordinates(self, obj):
+        if obj.location:
+            return f"({obj.location.x:.5f}, {obj.location.y:.5f})"
+        return "-"
+    display_coordinates.short_description = "좌표"

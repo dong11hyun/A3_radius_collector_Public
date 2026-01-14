@@ -16,11 +16,14 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from stores.views import map_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("map/", map_view, name="map_view"), 
     #  주소 추가 (http://127.0.0.1:8000/map/)
+    
+    # 폐업 매장 관련 URL (영등포구 확장 프로젝트)
+    path("stores/", include("stores.urls_closed")),
 ]
