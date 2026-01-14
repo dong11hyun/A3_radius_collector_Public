@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>잘못된 데이터 목록</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        /* 네비게이션 */
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            color: #00d4ff;
+            margin: 0 15px;
+            text-decoration: none;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+            color: #f5576c;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        /* 경고 박스 */
+        .warning-box {
+            background: rgba(245, 87, 108, 0.2);
+            border: 1px solid rgba(245, 87, 108, 0.5);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .warning-box .icon {
+            font-size: 2rem;
+        }
+
+        .warning-box .text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* 카드 리스트 */
+        .error-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .error-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #f5576c;
+            transition: all 0.3s ease;
+        }
+
+        .error-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .error-info h3 {
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        .error-info .address {
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        .error-info .meta {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-report {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-verify {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-small:hover {
+            transform: scale(1.05);
+        }
+
+        /* 빈 상태 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .count-badge {
+            display: inline-block;
+            background: rgba(245, 87, 108, 0.3);
+            color: #f5576c;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="nav-links">
+            <a href="{% url 'closed_stores_list' %}">📋 전체 목록</a>
+            <a href="{% url 'closed_stores_map' %}">🗺️ 지도 보기</a>
+            <a href="/map/">🗺️ 전체 지도</a>
+        </div>
+
+        <h1>⚠️ 잘못된 데이터 목록</h1>
+        <p class="subtitle">공공데이터에서 폐업인데 카카오맵에 영업으로 표시된 매장</p>
+
+        <div class="count-badge">{{ total }}개 발견</div>
+
+        <div class="warning-box">
+            <span class="icon">⚠️</span>
+            <div class="text">
+                아래 매장들은 공공데이터포탈에서 <strong>'폐업'</strong> 상태이지만,
+                카카오맵에는 여전히 표시되어 있습니다.<br>
+                실제 방문하여 확인하거나, 카카오맵에 제보해주세요.
+            </div>
+        </div>
+
+        <div class="error-list">
+            {% for store in stores %}
+            <div class="error-card">
+                <div class="error-info">
+                    <h3>{{ store.name }}</h3>
+                    <p class="address">📍 {{ store.address }}</p>
+                    <p class="meta">기준 다이소: {{ store.base_daiso }}</p>
+                </div>
+                <div class="error-actions">
+                    <a href="{% url 'report_store' store.id %}" class="btn-small btn-report">📢 제보</a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <div class="icon">✅</div>
+                <p>잘못된 데이터가 없습니다!</p>
+                <p style="margin-top: 10px; font-size: 0.9rem;">
+                    공공데이터와 비교하려면 먼저<br>
+                    <code>python manage.py compare_public_data --csv=파일경로</code><br>
+                    명령을 실행하세요.
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+
+</html>

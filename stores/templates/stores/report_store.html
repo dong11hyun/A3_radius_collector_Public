@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>매장 제보하기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #00d4ff;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #f5576c;
+        }
+
+        .store-info {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .store-info h2 {
+            font-size: 1.2rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .store-info p {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
+
+        .info-label {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        /* 카카오맵 링크 */
+        .kakao-link {
+            display: block;
+            background: linear-gradient(135deg, #fee140 0%, #fa709a 100%);
+            color: #1a1a2e;
+            text-align: center;
+            padding: 15px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .kakao-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(250, 112, 154, 0.4);
+        }
+
+        /* 폼 */
+        form {
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(56, 239, 125, 0.4);
+        }
+
+        .guide {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .guide strong {
+            color: #00d4ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <a href="{% url 'closed_stores_list' %}" class="back-link">← 목록으로 돌아가기</a>
+
+        <h1>📢 매장 제보하기</h1>
+
+        <div class="store-info">
+            <h2>{{ store.name }}</h2>
+            <p>📍 {{ store.address }}</p>
+            <p class="info-label">기준 다이소: {{ store.base_daiso }}</p>
+        </div>
+
+        <a href="{{ kakao_map_url }}" target="_blank" class="kakao-link">
+            🗺️ 카카오맵에서 확인하기
+        </a>
+
+        <div class="guide">
+            <strong>💡 제보 방법:</strong><br>
+            1. 위 버튼을 클릭하여 카카오맵에서 매장을 찾습니다<br>
+            2. 매장 상세 페이지에서 "정보 수정 제안" 버튼을 클릭합니다<br>
+            3. "폐업" 또는 "영업 중단"으로 신고합니다
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="note">메모 (선택사항)</label>
+                <textarea id="note" name="note" placeholder="추가 정보가 있다면 입력하세요..."></textarea>
+            </div>
+            <button type="submit" class="submit-btn">✅ 제보 완료 표시</button>
+        </form>
+    </div>
+</body>
+
+</html>

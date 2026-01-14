@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default:"편의점 지도" }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* 헤더 */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px 20px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            color: #00d4ff;
+        }
+
+        .header .count {
+            background: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+            padding-top: 60px;
+        }
+
+        /* 범례 */
+        .legend {
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 15px 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+
+        .legend-marker {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-marker.convenience {
+            background: #00d4ff;
+        }
+
+        /* 통계 패널 */
+        .stats-panel {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 15px 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            color: #fff;
+        }
+
+        .stats-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.85rem;
+        }
+
+        .stat-row .value {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🏪 {{ title|default:"영등포구 편의점 지도" }}</h1>
+        <span class="count">총 {{ total }}개</span>
+        <div class="nav-links">
+            <a href="{% url 'closed_stores_list' %}">📋 폐업 의심</a>
+            <a href="/map/">🗺️ 전체 지도</a>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <span class="legend-marker convenience"></span>
+            <span>편의점</span>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <h3>📊 통계</h3>
+        <div class="stat-row">
+            <span>편의점 수:</span>
+            <span class="value">{{ total }}개</span>
+        </div>
+    </div>
+
+    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
+
+    <script>
+        // Django에서 전달받은 매장 데이터
+        var stores = {{ stores_data| safe }};
+
+        // 지도 생성
+        var mapContainer = document.getElementById('map');
+        var mapOption = {
+            center: new kakao.maps.LatLng(37.5244, 126.8963), // 영등포구 중심
+            level: 5
+        };
+        var map = new kakao.maps.Map(mapContainer, mapOption);
+
+        // 마커 생성
+        stores.forEach(function (store) {
+            var markerPosition = new kakao.maps.LatLng(store.lat, store.lng);
+
+            var marker = new kakao.maps.Marker({
+                position: markerPosition,
+                title: store.name
+            });
+
+            marker.setMap(map);
+
+            // 인포윈도우
+            var phoneInfo = store.phone ? '<br>📞 ' + store.phone : '';
+            var iwContent = '<div style="padding:10px; min-width:200px;">' +
+                '<strong>' + store.name + '</strong><br>' +
+                '<span style="font-size:12px; color:#666;">' + store.address + '</span>' +
+                phoneInfo +
+                '<br><span style="font-size:11px; color:#999;">거리: ' + store.distance + 'm | 기준: ' + store.base_daiso + '</span>' +
+                '</div>';
+
+            var infowindow = new kakao.maps.InfoWindow({
+                content: iwContent,
+                removable: true
+            });
+
+            kakao.maps.event.addListener(marker, 'click', function () {
+                infowindow.open(map, marker);
+            });
+        });
+
+        // 모든 마커가 보이도록 지도 범위 조정
+        if (stores.length > 0) {
+            var bounds = new kakao.maps.LatLngBounds();
+            stores.forEach(function (store) {
+                bounds.extend(new kakao.maps.LatLng(store.lat, store.lng));
+            });
+            map.setBounds(bounds);
+        }
+    </script>
+</body>
+
+</html>
