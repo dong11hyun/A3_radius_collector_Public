@@ -44,8 +44,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--radius',
             type=float,
-            default=1.0,
-            help='탐색 반경 (km, 기본: 1.0)'
+            default=1.3,
+            help='탐색 반경 (km, 기본: 1.3)'
         )
 
     def is_strictly_yeongdeungpo(self, address):
