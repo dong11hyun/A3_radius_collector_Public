@@ -26,3 +26,8 @@ def map_view(request):
     }
     
     return render(request, 'map.html', context)
+
+
+def kakao_map_test(request):
+    """카카오 지도 마커 테스트 뷰"""
+    return render(request, 'kakao_map_test.html')
