@@ -31,3 +31,39 @@ def map_view(request):
 def kakao_map_test(request):
     """카카오 지도 마커 테스트 뷰"""
     return render(request, 'kakao_map_test.html')
+
+
+def matched_stores_map(request):
+    """교차 매칭된 편의점 데이터를 카카오맵에 표시"""
+    import os
+    import pandas as pd
+    
+    # CSV 파일 경로 (프로젝트 루트의 matched_stores_unique.csv)
+    csv_path = os.path.join(settings.BASE_DIR, 'matched_stores_unique.csv')
+    
+    stores_list = []
+    store_count = 0
+    
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        store_count = len(df)
+        
+        for _, row in df.iterrows():
+            # 위도/경도가 있는 경우만 추가
+            if pd.notna(row['위도']) and pd.notna(row['경도']):
+                stores_list.append({
+                    'name': row['이름'],
+                    'address': row['주소'],
+                    'lat': float(row['위도']),
+                    'lng': float(row['경도']),
+                    'source': row['출처'],
+                    'match_reason': row['매칭이유']
+                })
+    
+    context = {
+        'stores_json': json.dumps(stores_list, ensure_ascii=False),
+        'kakao_js_key': settings.KAKAO_JS_KEY,
+        'store_count': store_count,
+    }
+    
+    return render(request, 'matched_stores_map.html', context)
