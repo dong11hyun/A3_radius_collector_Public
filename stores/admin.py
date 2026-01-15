@@ -115,8 +115,9 @@ class SeoulRestaurantLicenseAdmin(admin.ModelAdmin):
         'uptaenm',          # 업태구분명
         'trdstatenm',       # 영업상태명
         'rdnwhladdr',       # 도로명주소
+        'latitude',         # 위도
+        'longitude',        # 경도
         'apvpermymd',       # 인허가일자
-        'sitetel',          # 전화번호
     )
     
     # 필터 기능
@@ -147,7 +148,7 @@ class SeoulRestaurantLicenseAdmin(admin.ModelAdmin):
             'fields': ('rdnwhladdr', 'sitewhladdr', 'sitetel', 'homepage')
         }),
         ('좌표 정보', {
-            'fields': ('x', 'y'),
+            'fields': ('x', 'y', 'latitude', 'longitude'),
             'classes': ('collapse',)  # 접을 수 있게
         }),
         ('시스템 정보', {

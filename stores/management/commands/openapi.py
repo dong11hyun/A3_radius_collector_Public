@@ -2,16 +2,33 @@
 서울시 영등포구 휴게음식점 인허가 정보 수집 (편의점만)
 - Open API에서 페이지네이션으로 전체 데이터 수집
 - 편의점만 필터링하여 PostgreSQL에 저장
+- TM 좌표를 WGS84(위도/경도)로 변환
 """
 import os
 import requests
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
+from pyproj import Transformer
 from stores.models import SeoulRestaurantLicense
 
 
+# 좌표계 변환기: TM 중부원점 (EPSG:2097) -> WGS84 (EPSG:4326)
+transformer = Transformer.from_crs("EPSG:2097", "EPSG:4326", always_xy=True)
+
+
+def convert_tm_to_wgs84(x, y):
+    """TM 좌표를 WGS84 위도/경도로 변환"""
+    try:
+        x_float = float(x)
+        y_float = float(y)
+        lon, lat = transformer.transform(x_float, y_float)
+        return lat, lon  # latitude, longitude
+    except (ValueError, TypeError):
+        return None, None
+
+
 class Command(BaseCommand):
-    help = '서울시 영등포구 휴게음식점 인허가 정보에서 편의점만 수집하여 DB에 저장'
+    help = '서울시 영등포구 편의점 인허가 정보 수집 (TM 좌표를 위도/경도로 변환)'
 
     # API 설정 (.env에서 로드)
     API_KEY = os.environ.get('SEOUL_OPENAPI_KEY', '')
@@ -125,13 +142,18 @@ class Command(BaseCommand):
             if not mgtno:
                 continue
             
-            # 좌표 변환 (TM -> WGS84 변환은 별도 처리 필요, 일단 원본 저장)
+            # 원본 TM 좌표
             x_coord = store.get('X', '')
             y_coord = store.get('Y', '')
+            
+            # TM 좌표를 WGS84(위도/경도)로 변환
+            latitude, longitude = None, None
             location = None
             
-            # X, Y 좌표가 있으면 Point 생성 시도 (원본은 TM 좌표이므로 주의)
-            # 실제 사용 시 좌표계 변환 필요
+            if x_coord and y_coord:
+                latitude, longitude = convert_tm_to_wgs84(x_coord, y_coord)
+                if latitude and longitude:
+                    location = Point(longitude, latitude, srid=4326)  # Point(x=lon, y=lat)
             
             defaults = {
                 'opnsfteamcode': store.get('OPNSFTEAMCODE', ''),
@@ -156,6 +178,8 @@ class Command(BaseCommand):
                 'homepage': store.get('HOMEPAGE', ''),
                 'x': x_coord,
                 'y': y_coord,
+                'latitude': latitude,
+                'longitude': longitude,
                 'location': location,
                 'sitearea': store.get('SITEAREA', ''),
                 'faciltotscp': store.get('FACILTOTSCP', ''),

@@ -108,9 +108,13 @@ class SeoulRestaurantLicense(models.Model):
     sitetel = models.CharField(max_length=50, null=True, blank=True, verbose_name='전화번호')
     homepage = models.CharField(max_length=300, null=True, blank=True, verbose_name='홈페이지')
     
-    # 좌표 정보
-    x = models.CharField(max_length=50, null=True, blank=True, verbose_name='좌표X')
-    y = models.CharField(max_length=50, null=True, blank=True, verbose_name='좌표Y')
+    # 좌표 정보 (원본 TM 좌표)
+    x = models.CharField(max_length=50, null=True, blank=True, verbose_name='좌표X (TM)')
+    y = models.CharField(max_length=50, null=True, blank=True, verbose_name='좌표Y (TM)')
+    
+    # 변환된 WGS84 좌표 (위도/경도)
+    latitude = models.FloatField(null=True, blank=True, verbose_name='위도')
+    longitude = models.FloatField(null=True, blank=True, verbose_name='경도')
     location = gis_models.PointField(srid=4326, null=True, blank=True, verbose_name='위치')
     
     # 면적 및 규모
@@ -135,9 +139,9 @@ class SeoulRestaurantLicense(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'seoul_restaurant_license'
-        verbose_name = '서울시 휴게음식점 인허가'
-        verbose_name_plural = '서울시 휴게음식점 인허가 목록'
+        db_table = 'yeongdeungpo_convenience_license'
+        verbose_name = '영등포구 편의점 인허가'
+        verbose_name_plural = '영등포구 편의점 인허가 목록'
 
     def __str__(self):
         return f"[{self.uptaenm}] {self.bplcnm} ({self.trdstatenm})"
