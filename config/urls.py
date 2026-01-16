@@ -17,17 +17,11 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from stores.views import map_view, kakao_map_test, matched_stores_map, store_closure_map_view
+from stores.views import map_view, store_closure_map_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("map/", map_view, name="map_view"), 
-    path("map-test/", kakao_map_test, name="kakao_map_test"),  # 마커 테스트 
-    path("matched-stores/", matched_stores_map, name="matched_stores_map"),  # 교차 매칭 편의점 지도
     path("store-closure/", store_closure_map_view, name="store_closure_map"),  # 폐업 매장 체크 지도
-    #  주소 추가 (http://127.0.0.1:8000/map/)
-    
-    # 폐업 매장 관련 URL (영등포구 확장 프로젝트)
-    path("stores/", include("stores.urls_closed")),
 ]
 
