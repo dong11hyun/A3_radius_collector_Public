@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DaisoStore, NearbyStore, YeongdeungpoDaiso, YeongdeungpoConvenience, SeoulRestaurantLicense
+from .models import DaisoStore, NearbyStore, YeongdeungpoDaiso, YeongdeungpoConvenience, SeoulRestaurantLicense, TobaccoRetailLicense
 
 # 1. 다이소 매장 관리 (기존 유지 + 보완)
 @admin.register(DaisoStore)
@@ -146,6 +146,56 @@ class SeoulRestaurantLicenseAdmin(admin.ModelAdmin):
         }),
         ('주소 및 연락처', {
             'fields': ('rdnwhladdr', 'sitewhladdr', 'sitetel', 'homepage')
+        }),
+        ('좌표 정보', {
+            'fields': ('x', 'y', 'latitude', 'longitude'),
+            'classes': ('collapse',)  # 접을 수 있게
+        }),
+        ('시스템 정보', {
+            'fields': ('lastmodts', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+# 6. 영등포구 담배소매업 인허가 정보 관리
+@admin.register(TobaccoRetailLicense)
+class TobaccoRetailLicenseAdmin(admin.ModelAdmin):
+    list_display = (
+        'bplcnm',           # 사업장명
+        'trdstatenm',       # 영업상태명
+        'rdnwhladdr',       # 도로명주소
+        'latitude',         # 위도
+        'longitude',        # 경도
+        'apvpermymd',       # 인허가일자
+        'asgnymd',          # 지정일자
+    )
+    
+    # 필터 기능
+    list_filter = (
+        'trdstatenm',       # 영업상태 (영업/정상, 폐업 등)
+        'dtlstatenm',       # 상세영업상태
+    )
+    
+    # 검색 기능
+    search_fields = ('bplcnm', 'rdnwhladdr', 'sitewhladdr', 'mgtno', 'sitetel')
+    
+    # 페이징
+    list_per_page = 50
+    
+    # 읽기 전용 필드
+    readonly_fields = ('mgtno', 'created_at', 'updated_at')
+    
+    # 필드 그룹화
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('mgtno', 'bplcnm', 'uptaenm')
+        }),
+        ('영업 상태', {
+            'fields': ('trdstatenm', 'dtlstatenm', 'apvpermymd', 'dcbymd', 'asgnymd', 'mwsrnm')
+        }),
+        ('주소 및 연락처', {
+            'fields': ('rdnwhladdr', 'sitewhladdr', 'sitetel', 'sitepostno', 'rdnpostno')
         }),
         ('좌표 정보', {
             'fields': ('x', 'y', 'latitude', 'longitude'),
