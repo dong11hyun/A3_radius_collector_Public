@@ -211,3 +211,35 @@ class TobaccoRetailLicense(models.Model):
 
     def __str__(self):
         return f"[담배소매업] {self.bplcnm} ({self.trdstatenm})"
+
+
+# 7. 폐업 매장 체크 결과 저장
+class StoreClosureResult(models.Model):
+    """카카오맵 폐업 매장 체크 결과"""
+    
+    STATUS_CHOICES = [
+        ('정상', '정상 영업'),
+        ('폐업', '폐업 추정'),
+    ]
+    
+    place_id = models.CharField(max_length=50, unique=True, verbose_name='카카오 Place ID')
+    name = models.CharField(max_length=200, verbose_name='매장명')
+    address = models.CharField(max_length=300, verbose_name='주소')
+    latitude = models.FloatField(null=True, blank=True, verbose_name='위도')
+    longitude = models.FloatField(null=True, blank=True, verbose_name='경도')
+    location = gis_models.PointField(srid=4326, null=True, blank=True, verbose_name='위치')
+    
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, verbose_name='상태')
+    match_reason = models.CharField(max_length=100, verbose_name='매칭 이유')
+    
+    checked_at = models.DateTimeField(auto_now=True, verbose_name='체크 일시')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='최초 생성일')
+
+    class Meta:
+        db_table = 'store_closure_result'
+        verbose_name = '폐업 매장 체크 결과'
+        verbose_name_plural = '폐업 매장 체크 결과 목록'
+        ordering = ['-checked_at']
+
+    def __str__(self):
+        return f"[{self.status}] {self.name}"

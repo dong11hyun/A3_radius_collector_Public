@@ -67,3 +67,46 @@ def matched_stores_map(request):
     }
     
     return render(request, 'matched_stores_map.html', context)
+
+
+def store_closure_map_view(request):
+    """폐업 매장 체크 결과를 카카오맵에 표시"""
+    import os
+    import pandas as pd
+    
+    # CSV 파일 경로 (프로젝트 루트의 store_closure_result.csv)
+    csv_path = os.path.join(settings.BASE_DIR, 'store_closure_result.csv')
+    
+    stores_list = []
+    normal_count = 0
+    closed_count = 0
+    
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        
+        for _, row in df.iterrows():
+            # 위도/경도가 있는 경우만 추가
+            if pd.notna(row['위도']) and pd.notna(row['경도']):
+                status = row['상태']
+                if status == '정상':
+                    normal_count += 1
+                else:
+                    closed_count += 1
+                    
+                stores_list.append({
+                    'name': row['이름'],
+                    'address': row['주소'],
+                    'lat': float(row['위도']),
+                    'lng': float(row['경도']),
+                    'status': status,
+                    'match_reason': row['매칭이유']
+                })
+    
+    context = {
+        'stores_json': json.dumps(stores_list, ensure_ascii=False),
+        'kakao_js_key': settings.KAKAO_JS_KEY,
+        'normal_count': normal_count,
+        'closed_count': closed_count,
+    }
+    
+    return render(request, 'store_closure_map.html', context)

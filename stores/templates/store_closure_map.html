@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>카카오맵 폐업 매장 체크 프로그램</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            max-width: 350px;
+        }
+
+        .info-panel h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .info-panel p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .stats {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .stats span {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 13px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .stats .normal {
+            background: linear-gradient(135deg, #4ECDC4 0%, #44a8a0 100%);
+            color: white;
+        }
+
+        .stats .closed {
+            background: linear-gradient(135deg, #FF6B6B 0%, #ee5a5a 100%);
+            color: white;
+        }
+
+        .legend {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .legend-desc {
+            font-size: 11px;
+            color: #888;
+            margin-left: 24px;
+            margin-top: -4px;
+        }
+
+        .iwContent {
+            padding: 10px 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            min-width: 200px;
+        }
+
+        .iwContent .name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .iwContent .address {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .iwContent .status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .iwContent .status.normal {
+            background: #E3F2FD;
+            color: #1976D2;
+        }
+
+        .iwContent .status.closed {
+            background: #FFEBEE;
+            color: #D32F2F;
+        }
+
+        .iwContent .match-reason {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="info-panel">
+        <h2>🗺️ 카카오맵 폐업 매장 체크 프로그램</h2>
+        <p>카카오 API 편의점과 공공데이터 비교 결과</p>
+        <div class="stats">
+            <span class="normal">🔵 정상: {{ normal_count }}개</span>
+            <span class="closed">🔴 폐업: {{ closed_count }}개</span>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4285F4;"></div>
+                정상 영업
+            </div>
+            <div class="legend-desc">공공데이터에서 확인됨</div>
+            <div class="legend-item" style="margin-top: 10px;">
+                <div class="legend-color" style="background: #EA4335;"></div>
+                폐업 추정
+            </div>
+            <div class="legend-desc">카카오맵 업데이트 필요!</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
+
+    <script>
+        // Django에서 전달받은 데이터
+        var stores = JSON.parse('{{ stores_json|escapejs }}');
+
+        // 영등포구 중심 좌표
+        var mapContainer = document.getElementById('map');
+        var mapOption = {
+            center: new kakao.maps.LatLng(37.5171, 126.9066),  // 영등포구청 부근
+            level: 5
+        };
+        var map = new kakao.maps.Map(mapContainer, mapOption);
+
+        // 마커 생성
+        stores.forEach(function (store) {
+            if (!store.lat || !store.lng) return;  // 좌표 없는 경우 스킵
+
+            var markerPosition = new kakao.maps.LatLng(store.lat, store.lng);
+
+            // 상태별 마커 이미지 설정
+            var markerColor = store.status === '정상' ?
+                'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_number_blue.png' :
+                'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png';
+
+            var imageSize = new kakao.maps.Size(36, 37);
+            var imageOption = { offset: new kakao.maps.Point(13, 37) };
+            var markerImage = new kakao.maps.MarkerImage(markerColor, imageSize, imageOption);
+
+            var marker = new kakao.maps.Marker({
+                position: markerPosition,
+                title: store.name,
+                image: markerImage
+            });
+
+            marker.setMap(map);
+
+            // 인포윈도우 내용
+            var statusClass = store.status === '정상' ? 'normal' : 'closed';
+            var statusText = store.status === '정상' ? '🔵 정상 영업' : '🔴 폐업 추정';
+
+            var iwContent = '<div class="iwContent">' +
+                '<div class="name">' + store.name + '</div>' +
+                '<div class="address">' + store.address + '</div>' +
+                '<div class="status ' + statusClass + '">' + statusText + '</div>' +
+                '<div class="match-reason">매칭: ' + store.match_reason + '</div>' +
+                '</div>';
+
+            var infowindow = new kakao.maps.InfoWindow({
+                content: iwContent,
+                removable: true
+            });
+
+            // 클릭 이벤트
+            kakao.maps.event.addListener(marker, 'click', function () {
+                infowindow.open(map, marker);
+            });
+        });
+
+        // 지도 컨트롤 추가
+        var zoomControl = new kakao.maps.ZoomControl();
+        map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+    </script>
+
+</body>
+
+</html>
