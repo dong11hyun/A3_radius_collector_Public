@@ -192,4 +192,3 @@ docker compose exec web python manage.py check_store_closure
 ---
 
 **프로젝트 기간**: 2025.11 ~ 2026.01  
-**Author**: DaewonJeon
