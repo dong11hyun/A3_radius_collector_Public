@@ -17,11 +17,23 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from stores.views import map_view, store_closure_map_view
+from stores.views import (
+    map_view, 
+    store_closure_map_view,
+    collector_view,
+    start_collection,
+    check_status,
+    get_results
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", collector_view, name="home"),  # 메인 페이지 (수집 UI)
     path("map/", map_view, name="map_view"), 
-    path("store-closure/", store_closure_map_view, name="store_closure_map"),  # 폐업 매장 체크 지도
+    path("store-closure/", store_closure_map_view, name="store_closure_map"),
+    
+    # API 엔드포인트
+    path("api/start-collection/", start_collection, name="start_collection"),
+    path("api/check-status/", check_status, name="check_status"),
+    path("api/get-results/", get_results, name="get_results"),
 ]
-

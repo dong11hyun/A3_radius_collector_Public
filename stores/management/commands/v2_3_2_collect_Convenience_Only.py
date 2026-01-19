@@ -1,10 +1,10 @@
 # stores/management/commands/collect_convenience_only.py
 """
-영등포구 다이소 기준 편의점만 수집하는 커맨드 (개선판)
+다이소 기준 편의점만 수집하는 커맨드 (확장성 개선판)
 
 핵심 개선사항:
-1. 엄격한 영등포구 주소 필터링
-2. 불필요한 다른 구 편의점 제외
+1. --gu 인자로 타겟 구 지정 가능 (기본: 영등포구)
+2. 타겟 구 주소 필터링 (확장성 확보)
 3. 수집 결과 상세 통계
 """
 
@@ -17,12 +17,8 @@ from django.conf import settings
 from stores.models import YeongdeungpoDaiso, YeongdeungpoConvenience
 
 
-# 주변 구 이름 (제외 대상)
-EXCLUDED_GU = ['구로구', '금천구', '양천구', '관악구', '동작구', '서초구', '마포구', '용산구']
-
-
 class Command(BaseCommand):
-    help = '영등포구 다이소 기준 편의점만 수집합니다. (엄격한 영등포구 필터링)'
+    help = '다이소 기준 편의점만 수집합니다. (--gu 옵션으로 대상 구 지정)'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -48,20 +44,13 @@ class Command(BaseCommand):
             help='탐색 반경 (km, 기본: 1.3)'
         )
 
-    def is_strictly_yeongdeungpo(self, address):
+    def is_target_gu(self, address, target_gu):
         """
-        주소가 정확히 영등포구인지 확인 (엄격한 필터)
+        주소가 타겟 구인지 확인 (단순화된 필터)
         """
         if not address:
             return False
-        
-        # 다른 구 이름이 포함되면 제외
-        for gu in EXCLUDED_GU:
-            if gu in address:
-                return False
-        
-        # 영등포구가 반드시 포함되어야 함
-        return '영등포구' in address
+        return target_gu in address
 
     def handle(self, *args, **options):
         # API 키 설정 (우선순위: 인자 > settings > 환경변수)
@@ -172,10 +161,10 @@ class Command(BaseCommand):
 
                         for item in documents:
                             try:
-                                # [핵심] 영등포구 엄격 필터링
+                                # [핵심] 타겟 구 필터링
                                 address = item.get('road_address_name') or item.get('address_name', '')
                                 
-                                if not self.is_strictly_yeongdeungpo(address):
+                                if not self.is_target_gu(address, target_gu):
                                     skipped_count += 1
                                     continue
                                 
@@ -210,7 +199,7 @@ class Command(BaseCommand):
                         
                         time.sleep(0.2)
 
-            self.stdout.write(f"  -> {stored_count}개 저장, {skipped_count}개 스킵 (영등포구 아님)")
+            self.stdout.write(f"  -> {stored_count}개 저장, {skipped_count}개 스킵 ({target_gu} 아님)")
             total_collected += stored_count
             total_skipped += skipped_count
             time.sleep(0.3)
@@ -218,21 +207,21 @@ class Command(BaseCommand):
         # 최종 통계
         convenience_count = YeongdeungpoConvenience.objects.count()
         
-        # 영등포구 외 데이터 확인
+        # 타겟 구 외 데이터 확인
         wrong_gu_count = sum(1 for c in YeongdeungpoConvenience.objects.all() 
-                           if not self.is_strictly_yeongdeungpo(c.address))
+                           if not self.is_target_gu(c.address, target_gu))
         
         self.stdout.write(self.style.SUCCESS(f"""
 --- 수집 완료 ---
   ✅ 이번 수집: {total_collected}개
-  ⚠️ 스킵 (영등포구 아님): {total_skipped}개
+  ⚠️ 스킵 ({target_gu} 아님): {total_skipped}개
 
 📊 현재 DB 상태:
-  - 영등포구 편의점: {convenience_count}개
-  - 영등포구 외 데이터: {wrong_gu_count}개
+  - {target_gu} 편의점: {convenience_count}개
+  - {target_gu} 외 데이터: {wrong_gu_count}개
         """))
         
         if wrong_gu_count > 0:
             self.stdout.write(self.style.WARNING(
-                f"⚠️ 영등포구 아닌 편의점 {wrong_gu_count}개가 DB에 있습니다."
+                f"⚠️ {target_gu} 아닌 편의점 {wrong_gu_count}개가 DB에 있습니다."
             ))
