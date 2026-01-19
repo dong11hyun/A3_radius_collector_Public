@@ -1,9 +1,9 @@
 """
 카카오맵 폐업 매장 체크 프로그램
 
-카카오 API 편의점(463개)과 3개 데이터셋을 비교:
-1. SeoulRestaurantLicense (영등포구 휴게음식점 인허가 - 편의점)
-2. TobaccoRetailLicense (영등포구 담배소매점 인허가)
+카카오 API 편의점과 3개 데이터셋을 비교:
+1. SeoulRestaurantLicense (휴게음식점 인허가 - 편의점)
+2. TobaccoRetailLicense (담배소매점 인허가)
 3. public_data.csv (소상공인상권 데이터)
 
 매칭 조건 (OR):
@@ -12,6 +12,8 @@
 - 위도/경도가 일치하면 → 정상(영업)
 
 아무것도 일치하지 않으면 → 폐업
+
+--gu 옵션으로 대상 구 지정 가능
 """
 
 import os
@@ -20,6 +22,7 @@ import pandas as pd
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
 from stores.models import SeoulRestaurantLicense, TobaccoRetailLicense, YeongdeungpoConvenience, StoreClosureResult
+from .gu_codes import list_supported_gu
 
 
 def normalize_name(name):
@@ -32,11 +35,12 @@ def normalize_name(name):
     return name
 
 
-def extract_road_address(address):
+def extract_road_address(address, target_gu='영등포구'):
     """
     도로명 주소에서 핵심 부분 추출
     - 서울특별시/서울시/서울 → 통일
     - 도로명 + 번호 추출 (예: 양평로 49)
+    - target_gu: 동적으로 구 이름 지정
     """
     if not address or pd.isna(address):
         return ""
@@ -57,8 +61,8 @@ def extract_road_address(address):
         road_name = match.group(1)
         road_num = match.group(2)
         
-        # 구 이름 추출
-        gu_pattern = r'(영등포구)'
+        # 구 이름 추출 (동적으로 target_gu 사용)
+        gu_pattern = rf'({target_gu})'
         gu_match = re.search(gu_pattern, address)
         gu = gu_match.group(1) if gu_match else ""
         
@@ -82,9 +86,15 @@ def round_coord(val, decimals=4):
 
 
 class Command(BaseCommand):
-    help = '카카오맵 폐업 매장 체크 - 카카오 API 편의점과 3개 데이터셋 비교'
+    help = '카카오맵 폐업 매장 체크 - 카카오 API 편의점과 3개 데이터셋 비교 (--gu 옵션으로 대상 구 지정)'
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            '--gu',
+            type=str,
+            default='영등포구',
+            help=f'대상 구 (기본: 영등포구). 지원: {", ".join(list_supported_gu())}'
+        )
         parser.add_argument(
             '--decimals',
             type=int,
@@ -110,11 +120,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        target_gu = options['gu']
         decimals = options['decimals']
         output_file = options['output']
         
         self.stdout.write(self.style.SUCCESS("=" * 70))
-        self.stdout.write(self.style.SUCCESS("🔍 카카오맵 폐업 매장 체크 프로그램"))
+        self.stdout.write(self.style.SUCCESS(f"🔍 {target_gu} 폐업 매장 체크 프로그램"))
         self.stdout.write(self.style.SUCCESS("=" * 70))
         
         # ========================================
@@ -139,7 +150,7 @@ class Command(BaseCommand):
                 'lat': lat,
                 'lng': lng,
                 'name_norm': normalize_name(name),
-                'address_norm': extract_road_address(address),
+                'address_norm': extract_road_address(address, target_gu),
                 'lat_round': round_coord(lat, decimals),
                 'lng_round': round_coord(lng, decimals)
             })
@@ -165,7 +176,7 @@ class Command(BaseCommand):
             road_addr = store.rdnwhladdr or ""
             lot_addr = store.sitewhladdr or ""
             address = road_addr if road_addr else lot_addr
-            addr_norm = extract_road_address(address)
+            addr_norm = extract_road_address(address, target_gu)
             if addr_norm:
                 restaurant_addresses.add(addr_norm)
             
@@ -190,7 +201,7 @@ class Command(BaseCommand):
             road_addr = store.rdnwhladdr or ""
             lot_addr = store.sitewhladdr or ""
             address = road_addr if road_addr else lot_addr
-            addr_norm = extract_road_address(address)
+            addr_norm = extract_road_address(address, target_gu)
             if addr_norm:
                 tobacco_addresses.add(addr_norm)
             
@@ -227,7 +238,7 @@ class Command(BaseCommand):
             else:
                 address = road_addr
             
-            addr_norm = extract_road_address(address)
+            addr_norm = extract_road_address(address, target_gu)
             if addr_norm:
                 csv_addresses.add(addr_norm)
             

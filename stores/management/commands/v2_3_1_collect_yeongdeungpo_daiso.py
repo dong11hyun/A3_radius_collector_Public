@@ -1,9 +1,10 @@
 # stores/management/commands/collect_yeongdeungpo_daiso_v2.py
 """
-영등포구 다이소 수집 V2 - 다이소 공식 API + 카카오 API 2중 체크
-1. 다이소 공식 API로 16개 매장 수집
+다이소 수집 V2 - 다이소 공식 API + 카카오 API 2중 체크
+1. 다이소 공식 API로 매장 수집
 2. 좌표가 (0,0)인 경우 카카오 API로 보완
 3. 중복 방지: 다이소 매장코드(strCd) 기준
+4. --gu 옵션으로 대상 구 지정 가능
 """
 
 import requests
@@ -13,12 +14,19 @@ from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
 from django.conf import settings
 from stores.models import YeongdeungpoDaiso
+from .gu_codes import list_supported_gu
 
 
 class Command(BaseCommand):
-    help = '영등포구 다이소 수집 V2 - 다이소 공식 API + 카카오 API 2중 체크'
+    help = '다이소 수집 V2 - 다이소 공식 API + 카카오 API 2중 체크 (--gu 옵션으로 대상 구 지정)'
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            '--gu',
+            type=str,
+            default='영등포구',
+            help=f'대상 구 (기본: 영등포구). 지원: {", ".join(list_supported_gu())}'
+        )
         parser.add_argument(
             '--clear',
             action='store_true',
@@ -42,11 +50,11 @@ class Command(BaseCommand):
         }
         
         payload = {
-            "curLitd": 126.9088468,  # 영등포구 중심 좌표
+            "curLitd": 126.9088468,  # 서울 중심 좌표 (참고용)
             "curLttd": 37.4989756,
             "currentPage": 1,
             "geolocationAgrYn": "Y",
-            "keyword": keyword,
+            "keyword": keyword,  # 동적으로 구 이름 사용
             "pageSize": 100,
             "srchBassPkupStrYn": "Y",
             "srchYn": "Y"
@@ -114,6 +122,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         import os
         
+        target_gu = options['gu']
+        
+        # 구 이름에서 '구' 제거하여 키워드 생성 (예: 영등포구 → 영등포)
+        keyword = target_gu.replace('구', '')
+        
         # 카카오 API 키 설정
         KAKAO_API_KEY = (
             options.get('api_key') or
@@ -127,12 +140,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"🗑️ 기존 데이터 {deleted_count}개 삭제"))
         
         self.stdout.write(self.style.SUCCESS("=" * 60))
-        self.stdout.write(self.style.SUCCESS("📦 다이소 수집 V2 시작 (공식 API + 카카오 보완)"))
+        self.stdout.write(self.style.SUCCESS(f"📦 {target_gu} 다이소 수집 V2 시작 (공식 API + 카카오 보완)"))
         self.stdout.write(self.style.SUCCESS("=" * 60))
         
         # 1단계: 다이소 공식 API 조회
-        self.stdout.write("\n🔍 [1단계] 다이소 공식 API 조회...")
-        stores = self.fetch_from_daiso_api("영등포")
+        self.stdout.write(f"\n🔍 [1단계] 다이소 공식 API 조회... (keyword: {keyword})")
+        stores = self.fetch_from_daiso_api(keyword)
         
         if not stores:
             self.stdout.write(self.style.ERROR("다이소 API에서 데이터를 가져오지 못했습니다."))

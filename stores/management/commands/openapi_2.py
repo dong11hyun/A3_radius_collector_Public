@@ -1,8 +1,9 @@
 """
-서울시 영등포구 담배소매업 인허가 정보 수집
+서울시 담배소매업 인허가 정보 수집
 - Open API에서 페이지네이션으로 전체 데이터 수집
 - 영업중인 담배소매업만 필터링하여 PostgreSQL에 저장
 - TM 좌표를 WGS84(위도/경도)로 변환
+- --gu 옵션으로 대상 구 지정 가능
 """
 import os
 import requests
@@ -10,6 +11,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
 from pyproj import Transformer
 from stores.models import TobaccoRetailLicense
+from .gu_codes import get_tobacco_service, list_supported_gu
 
 
 # 좌표계 변환기: Korea 1985 / Central Belt (EPSG:5174) -> WGS84 (EPSG:4326)
@@ -29,16 +31,20 @@ def convert_tm_to_wgs84(x, y):
 
 
 class Command(BaseCommand):
-    help = '서울시 영등포구 담배소매업 인허가 정보 수집 (TM 좌표를 위도/경도로 변환)'
+    help = '서울시 담배소매업 인허가 정보 수집 (--gu 옵션으로 대상 구 지정)'
 
     # API 설정 (.env에서 로드)
     API_KEY = os.environ.get('SEOUL_OPENAPI_KEY', '')
-    SERVICE_NAME = 'LOCALDATA_114302_YD'  # 담배소매업
-
     BASE_URL = 'http://openAPI.seoul.go.kr:8088'
     PAGE_SIZE = 1000  # 한 번에 가져올 최대 건수
     
     def add_arguments(self, parser):
+        parser.add_argument(
+            '--gu',
+            type=str,
+            default='영등포구',
+            help=f'대상 구 (기본: 영등포구). 지원: {", ".join(list_supported_gu())}'
+        )
         parser.add_argument(
             '--dry-run',
             action='store_true',
@@ -56,15 +62,27 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        target_gu = options['gu']
         dry_run = options['dry_run']
         clear = options['clear']
         include_all = options['all']
+        
+        # 서비스명 동적 조회
+        try:
+            service_name = get_tobacco_service(target_gu)
+        except ValueError as e:
+            self.stdout.write(self.style.ERROR(str(e)))
+            return
+        
+        # 서비스명을 인스턴스 변수로 저장 (메서드에서 사용)
+        self.service_name = service_name
         
         if clear and not dry_run:
             deleted_count = TobaccoRetailLicense.objects.all().delete()[0]
             self.stdout.write(self.style.WARNING(f'기존 담배소매업 데이터 {deleted_count}건 삭제'))
         
-        self.stdout.write(self.style.SUCCESS('=== 서울시 영등포구 담배소매업 인허가 정보 수집 시작 ==='))
+        self.stdout.write(self.style.SUCCESS(f'=== 서울시 {target_gu} 담배소매업 인허가 정보 수집 시작 ==='))
+        self.stdout.write(f'서비스명: {service_name}')
         
         # 1. 전체 데이터 수 확인
         total_count = self.get_total_count()
@@ -114,14 +132,14 @@ class Command(BaseCommand):
 
     def get_total_count(self):
         """전체 데이터 수 조회"""
-        url = f'{self.BASE_URL}/{self.API_KEY}/json/{self.SERVICE_NAME}/1/1/'
+        url = f'{self.BASE_URL}/{self.API_KEY}/json/{self.service_name}/1/1/'
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()
             data = response.json()
             
-            if self.SERVICE_NAME in data:
-                return data[self.SERVICE_NAME]['list_total_count']
+            if self.service_name in data:
+                return data[self.service_name]['list_total_count']
             else:
                 self.stdout.write(self.style.ERROR(f'응답 오류: {data}'))
                 return 0
@@ -131,14 +149,14 @@ class Command(BaseCommand):
 
     def fetch_data(self, start_index, end_index):
         """데이터 조회"""
-        url = f'{self.BASE_URL}/{self.API_KEY}/json/{self.SERVICE_NAME}/{start_index}/{end_index}/'
+        url = f'{self.BASE_URL}/{self.API_KEY}/json/{self.service_name}/{start_index}/{end_index}/'
         try:
             response = requests.get(url, timeout=60)
             response.raise_for_status()
             data = response.json()
             
-            if self.SERVICE_NAME in data:
-                return data[self.SERVICE_NAME].get('row', [])
+            if self.service_name in data:
+                return data[self.service_name].get('row', [])
             return []
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'데이터 조회 오류: {e}'))
