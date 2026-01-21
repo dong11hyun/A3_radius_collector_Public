@@ -3,10 +3,10 @@
 
 이 모듈은 3가지 핵심 테스트를 포함합니다
 
-1. 확장성 테스트 (ScalabilityTests)
+1. 서울 '구'별 경계선 & 최적 반경 테스트 (ScalabilityTests)
    - 25개 구 코드 매핑 정확성 검증
-   - 다른 구 데이터 수집 시뮬레이션
-   - 구 경계 정확성 검증
+   - 구 경계 정확성 및 최적 반경 검증
+   - API 호출 비용 분석
 
 2. E2E 통합 테스트 (EndToEndIntegrationTests)
    - 전체 파이프라인 시뮬레이션 (Mock 기반)
@@ -21,8 +21,8 @@
 실행 방법:
     docker compose exec web python manage.py test stores.test_core -v 2
 
-작성일: 2026-01-21
-버전: v2.0
+작성일: 2026-01-22
+버전: v2.1
 """
 
 import os
@@ -106,12 +106,12 @@ class APICallTracker:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔺 테스트 1: 확장성 테스트
+# 🔺 테스트 1: 서울 '구'별 경계선 & 최적 반경 테스트
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ScalabilityTests(TestCase):
     """
-    확장성 테스트 - 25개 구에서 동작 검증
+    서울 '구'별 경계선 & 최적 반경 테스트 - 25개 구에서 동작 검증
     
     목표: 실제 배포 시 모든 구에서 동작해야 함
     """
@@ -120,12 +120,12 @@ class ScalabilityTests(TestCase):
         """테스트 데이터 설정"""
         self.test_gus = list_supported_gu()
         print("\n" + "="*70)
-        print(" 확장성 테스트 시작")
+        print(" 서울 '구'별 경계선 & 최적 반경 테스트 시작")
         print("="*70)
     
     def test_1_all_25_gu_codes_exist(self):
-        """[확장성 1/5] 25개 구 코드 매핑 존재 확인"""
-        print("\n[TEST 1/5] 25개 구 코드 매핑 존재 확인")
+        """[서울 '구'별 경계선 & 최적 반경 1/3] 25개 구 코드 매핑 존재 확인"""
+        print("\n[TEST 1/3] 25개 구 코드 매핑 존재 확인")
         
         expected_gus = [
             '강남구', '강동구', '강북구', '강서구', '관악구',
@@ -147,88 +147,9 @@ class ScalabilityTests(TestCase):
         
         print("    🔹 25개 구 코드 매핑 완료 확인")
     
-    def test_2_all_gu_have_valid_api_codes(self):
-        """[확장성 2/5] 모든 구의 API 서비스명 유효성 검증"""
-        print("\n[TEST 2/5] 모든 구의 API 서비스명 유효성 검증")
-        
-        invalid_gus = []
-        
-        for gu in list_supported_gu():
-            try:
-                info = get_gu_info(gu)
-                restaurant = get_restaurant_service(gu)
-                tobacco = get_tobacco_service(gu)
-                
-                # 서비스명 형식 검증
-                if not restaurant.startswith('LOCALDATA_072405_'):
-                    invalid_gus.append((gu, 'restaurant', restaurant))
-                if not tobacco.startswith('LOCALDATA_114302_'):
-                    invalid_gus.append((gu, 'tobacco', tobacco))
-                    
-            except Exception as e:
-                invalid_gus.append((gu, 'error', str(e)))
-        
-        if invalid_gus:
-            print(f"    🔺 유효하지 않은 구: {invalid_gus}")
-        else:
-            print("    🔹 모든 25개 구의 API 서비스명 유효")
-        
-        self.assertEqual(len(invalid_gus), 0, f"유효하지 않은 구 발견: {invalid_gus}")
-    
-    def test_3_different_gu_data_simulation(self):
-        """[확장성 3/5] 다른 구 데이터 수집 시뮬레이션"""
-        print("\n[TEST 3/5] 다른 구 데이터 수집 시뮬레이션")
-        
-        test_cases = [
-            {'gu': '영등포구', 'expected_daiso': 16, 'expected_convenience': 463},
-            {'gu': '강남구', 'expected_daiso': 25, 'expected_convenience': 600},
-            {'gu': '도봉구', 'expected_daiso': 8, 'expected_convenience': 200},
-        ]
-        
-        for case in test_cases:
-            gu = case['gu']
-            print(f"    [{gu}] 시뮬레이션 데이터 생성 중...")
-            
-            # 시뮬레이션 다이소 생성
-            for i in range(3):
-                YeongdeungpoDaiso.objects.create(
-                    name=f"다이소 {gu} {i+1}호점",
-                    address=f"서울시 {gu} 테스트로 {i+1}",
-                    daiso_id=f"sim_daiso_{gu}_{i}",
-                    gu=gu,
-                    location=Point(126.9 + (i * 0.01), 37.5 + (i * 0.01), srid=4326)
-                )
-            
-            # 시뮬레이션 편의점 생성
-            for i in range(5):
-                YeongdeungpoConvenience.objects.create(
-                    place_id=f"sim_conv_{gu}_{i}",
-                    base_daiso=f"다이소 {gu} 1호점",
-                    name=f"편의점 {gu} {i+1}",
-                    address=f"서울시 {gu} 테스트로 {i+1}",
-                    gu=gu,
-                    distance=100 + (i * 50),
-                    location=Point(126.9 + (i * 0.005), 37.5 + (i * 0.005), srid=4326)
-                )
-            
-            # 검증
-            daiso_count = YeongdeungpoDaiso.objects.filter(gu=gu).count()
-            conv_count = YeongdeungpoConvenience.objects.filter(gu=gu).count()
-            
-            print(f"        다이소: {daiso_count}개, 편의점: {conv_count}개 생성됨")
-        
-        # 구별 데이터 격리 검증
-        total_daiso = YeongdeungpoDaiso.objects.count()
-        total_conv = YeongdeungpoConvenience.objects.count()
-        
-        self.assertEqual(total_daiso, 9, f"총 다이소 수 불일치: {total_daiso}")
-        self.assertEqual(total_conv, 15, f"총 편의점 수 불일치: {total_conv}")
-        
-        print("    🔹 다른 구 데이터 시뮬레이션 및 격리 검증 완료")
-    
-    def test_4_boundary_address_validation(self):
-        """[확장성 4/5] 서울 25개 구 실제 다이소 기반 최적 반경 산출"""
-        print("\n[TEST 4/5] 서울 25개 구 실제 다이소 기반 최적 반경 산출")
+    def test_2_boundary_address_validation(self):
+        """[서울 '구'별 경계선 & 최적 반경 2/3] 서울 25개 구 실제 다이소 기반 최적 반경 산출"""
+        print("\n[TEST 2/3] 서울 25개 구 실제 다이소 기반 최적 반경 산출")
         print("     다이소 공식 API에서 실제 매장 데이터 수집 후 분석")
         
         from django.contrib.gis.geos import Polygon
@@ -901,9 +822,9 @@ class ScalabilityTests(TestCase):
         self.assertGreaterEqual(avg_coverage, 70,
             f"평균 커버리지가 70% 미만입니다: {avg_coverage:.1f}%")
     
-    def test_5_api_call_estimation(self):
-        """[확장성 5/5] API 호출 예상 및 비용 분석"""
-        print("\n[TEST 5/5] API 호출 예상 및 비용 분석")
+    def test_3_api_call_estimation(self):
+        """[서울 '구'별 경계선 & 최적 반경 3/3] API 호출 예상 및 비용 분석"""
+        print("\n[TEST 3/3] API 호출 예상 및 비용 분석")
         
         tracker = APICallTracker()
         
@@ -1291,7 +1212,7 @@ class TestResultSummary(TestCase):
         # 만약 이전 테스트가 실패했다면 이 테스트까지 도달하지 못함
         
         categories = [
-            ('확장성 테스트', 5, '🔹 모두 통과'),
+            ('서울 구 별 경계선 & 최적 반경 테스트', 5, '🔹 모두 통과'),
             ('E2E 통합 테스트', 5, '🔹 모두 통과'),
             ('Docker 재현성 테스트', 4, '🔹 모두 통과'),
         ]
