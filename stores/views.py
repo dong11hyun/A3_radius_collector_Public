@@ -684,3 +684,49 @@ def get_system_metrics():
         return {
             'error': str(e)
         }
+
+
+# -------------------------------------------------------------------------
+# Test Core Streaming View
+# -------------------------------------------------------------------------
+
+def dev_test_view(request):
+    """
+    Runs 'python manage.py test stores.test_core' and streams the output to the browser.
+    """
+    import sys
+    import subprocess
+    import os
+    from django.http import StreamingHttpResponse
+
+    def event_stream():
+        # Command to run the tests
+        cmd = [sys.executable, 'manage.py', 'test', 'stores.test_core', '--keepdb', '-v', '2']
+        
+        # Start the subprocess
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+            encoding='utf-8',
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"}
+        )
+
+        yield '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Test Core Execution</title>'
+        yield '<style>body { background-color: #1e1e1e; color: #d4d4d4; font-family: "Consolas", "Monaco", monospace; padding: 20px; }'
+        yield 'pre { white-space: pre-wrap; word-wrap: break-word; log-message: center;}</style></head><body><pre>'
+
+        # Yield output line by line
+        for line in process.stdout:
+            yield line
+
+        # Wait for process to complete
+        process.wait()
+        
+        yield '</pre>'
+        yield '<script>window.scrollTo(0, document.body.scrollHeight);</script>'
+        yield '</body></html>'
+
+    return StreamingHttpResponse(event_stream(), content_type='text/html')

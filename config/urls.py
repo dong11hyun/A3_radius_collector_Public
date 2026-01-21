@@ -25,7 +25,8 @@ from stores.views import (
     check_status,
     get_results,
     dev_monitor_view,
-    dev_status
+    dev_status,
+    dev_test_view
 )
 
 urlpatterns = [
@@ -36,6 +37,7 @@ urlpatterns = [
     
     # 개발자 모니터링 대시보드
     path("dev/monitor/", dev_monitor_view, name="dev_monitor"),
+    path("dev/test/", dev_test_view, name="dev_test"),
     
     # API 엔드포인트
     path("api/start-collection/", start_collection, name="start_collection"),
