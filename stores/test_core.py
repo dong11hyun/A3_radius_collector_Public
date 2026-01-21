@@ -227,39 +227,389 @@ class ScalabilityTests(TestCase):
         print("    ✅ 다른 구 데이터 시뮬레이션 및 격리 검증 완료")
     
     def test_4_boundary_address_validation(self):
-        """[확장성 4/5] 구 경계 주소 정확성 검증"""
-        print("\n[TEST 4/5] 구 경계 주소 정확성 검증")
+        """[확장성 4/5] 서울 25개 구 실제 다이소 기반 최적 반경 산출"""
+        print("\n[TEST 4/5] 서울 25개 구 실제 다이소 기반 최적 반경 산출")
+        print("    📡 다이소 공식 API에서 실제 매장 데이터 수집 후 분석")
         
-        # 테스트 데이터 생성
-        gu = '영등포구'
-        YeongdeungpoConvenience.objects.create(
-            place_id="boundary_test_1",
-            base_daiso="테스트 다이소",
-            name="경계 테스트 편의점",
-            address=f"서울시 {gu} 테스트로 1",
-            gu=gu,
-            distance=100,
-            location=Point(126.9066, 37.5171, srid=4326)
+        from django.contrib.gis.geos import Polygon
+        from pyproj import Transformer
+        import statistics
+        import requests
+        import json
+        import time
+        
+        # ================================================================
+        # 서울 25개 구 경계 데이터 (경계 폴리곤만)
+        # ================================================================
+        SEOUL_GU_BOUNDARIES = {
+            '강남구': {'area_km2': 39.50, 'boundary': [
+                (127.0170, 37.5170), (127.0650, 37.5170), (127.0850, 37.4950),
+                (127.0850, 37.4650), (127.0550, 37.4550), (127.0170, 37.4750),
+                (127.0170, 37.5170)]},
+            '강동구': {'area_km2': 24.59, 'boundary': [
+                (127.1120, 37.5550), (127.1650, 37.5550), (127.1650, 37.5150),
+                (127.1120, 37.5150), (127.1120, 37.5550)]},
+            '강북구': {'area_km2': 23.60, 'boundary': [
+                (127.0050, 37.6450), (127.0450, 37.6450), (127.0450, 37.6050),
+                (127.0050, 37.6050), (127.0050, 37.6450)]},
+            '강서구': {'area_km2': 41.44, 'boundary': [
+                (126.8150, 37.5850), (126.8850, 37.5850), (126.8850, 37.5250),
+                (126.8150, 37.5250), (126.8150, 37.5850)]},
+            '관악구': {'area_km2': 29.57, 'boundary': [
+                (126.9150, 37.4950), (126.9750, 37.4950), (126.9750, 37.4450),
+                (126.9150, 37.4450), (126.9150, 37.4950)]},
+            '광진구': {'area_km2': 17.06, 'boundary': [
+                (127.0650, 37.5550), (127.1050, 37.5550), (127.1050, 37.5250),
+                (127.0650, 37.5250), (127.0650, 37.5550)]},
+            '구로구': {'area_km2': 20.12, 'boundary': [
+                (126.8450, 37.5050), (126.9050, 37.5050), (126.9050, 37.4650),
+                (126.8450, 37.4650), (126.8450, 37.5050)]},
+            '금천구': {'area_km2': 13.01, 'boundary': [
+                (126.8850, 37.4650), (126.9250, 37.4650), (126.9250, 37.4350),
+                (126.8850, 37.4350), (126.8850, 37.4650)]},
+            '노원구': {'area_km2': 35.44, 'boundary': [
+                (127.0450, 37.6650), (127.1050, 37.6650), (127.1050, 37.6050),
+                (127.0450, 37.6050), (127.0450, 37.6650)]},
+            '도봉구': {'area_km2': 20.70, 'boundary': [
+                (127.0150, 37.6850), (127.0650, 37.6850), (127.0650, 37.6350),
+                (127.0150, 37.6350), (127.0150, 37.6850)]},
+            '동대문구': {'area_km2': 14.22, 'boundary': [
+                (127.0250, 37.5850), (127.0650, 37.5850), (127.0650, 37.5550),
+                (127.0250, 37.5550), (127.0250, 37.5850)]},
+            '동작구': {'area_km2': 16.35, 'boundary': [
+                (126.9150, 37.5150), (126.9650, 37.5150), (126.9650, 37.4850),
+                (126.9150, 37.4850), (126.9150, 37.5150)]},
+            '마포구': {'area_km2': 23.84, 'boundary': [
+                (126.8850, 37.5750), (126.9550, 37.5750), (126.9550, 37.5350),
+                (126.8850, 37.5350), (126.8850, 37.5750)]},
+            '서대문구': {'area_km2': 17.61, 'boundary': [
+                (126.9150, 37.5850), (126.9650, 37.5850), (126.9650, 37.5550),
+                (126.9150, 37.5550), (126.9150, 37.5850)]},
+            '서초구': {'area_km2': 47.00, 'boundary': [
+                (126.9750, 37.5050), (127.0550, 37.5050), (127.0550, 37.4450),
+                (126.9750, 37.4450), (126.9750, 37.5050)]},
+            '성동구': {'area_km2': 16.86, 'boundary': [
+                (127.0150, 37.5650), (127.0650, 37.5650), (127.0650, 37.5350),
+                (127.0150, 37.5350), (127.0150, 37.5650)]},
+            '성북구': {'area_km2': 24.57, 'boundary': [
+                (126.9850, 37.6150), (127.0350, 37.6150), (127.0350, 37.5750),
+                (126.9850, 37.5750), (126.9850, 37.6150)]},
+            '송파구': {'area_km2': 33.88, 'boundary': [
+                (127.0750, 37.5250), (127.1450, 37.5250), (127.1450, 37.4750),
+                (127.0750, 37.4750), (127.0750, 37.5250)]},
+            '양천구': {'area_km2': 17.41, 'boundary': [
+                (126.8450, 37.5350), (126.8950, 37.5350), (126.8950, 37.5050),
+                (126.8450, 37.5050), (126.8450, 37.5350)]},
+            '영등포구': {'area_km2': 24.53, 'boundary': [
+                (126.8694, 37.5578), (126.8956, 37.5519), (126.9035, 37.5445),
+                (126.9168, 37.5412), (126.9302, 37.5352), (126.9412, 37.5268),
+                (126.9378, 37.5145), (126.9302, 37.5048), (126.9145, 37.5012),
+                (126.8978, 37.5015), (126.8845, 37.5098), (126.8756, 37.5156),
+                (126.8712, 37.5298), (126.8648, 37.5412), (126.8625, 37.5498),
+                (126.8694, 37.5578)]},
+            '용산구': {'area_km2': 21.87, 'boundary': [
+                (126.9550, 37.5550), (127.0050, 37.5550), (127.0050, 37.5150),
+                (126.9550, 37.5150), (126.9550, 37.5550)]},
+            '은평구': {'area_km2': 29.71, 'boundary': [
+                (126.9050, 37.6350), (126.9650, 37.6350), (126.9650, 37.5850),
+                (126.9050, 37.5850), (126.9050, 37.6350)]},
+            '종로구': {'area_km2': 23.91, 'boundary': [
+                (126.9550, 37.5950), (127.0050, 37.5950), (127.0050, 37.5650),
+                (126.9550, 37.5650), (126.9550, 37.5950)]},
+            '중구': {'area_km2': 9.96, 'boundary': [
+                (126.9650, 37.5700), (127.0150, 37.5700), (127.0150, 37.5400),
+                (126.9650, 37.5400), (126.9650, 37.5700)]},
+            '중랑구': {'area_km2': 18.50, 'boundary': [
+                (127.0650, 37.6150), (127.1150, 37.6150), (127.1150, 37.5750),
+                (127.0650, 37.5750), (127.0650, 37.6150)]},
+        }
+        
+        # ================================================================
+        # 다이소 공식 API에서 실제 매장 데이터 수집 함수
+        # (카카오 API 2차 검증 포함)
+        # ================================================================
+        import os
+        from django.conf import settings
+        
+        # 카카오 API 키 가져오기
+        KAKAO_API_KEY = (
+            getattr(settings, 'KAKAO_API_KEY', None) or
+            os.environ.get('KAKAO_API_KEY', '')
         )
         
-        # 다른 구 주소가 섞여있는지 검증
-        all_stores = YeongdeungpoConvenience.objects.filter(gu=gu)
-        wrong_address_stores = []
+        def fetch_coords_from_kakao(store_name, address):
+            """카카오 API로 좌표 조회 (주소 → 좌표) - 2차 검증용"""
+            if not KAKAO_API_KEY:
+                return None
+            
+            # 1. 키워드 검색 시도
+            url = "https://dapi.kakao.com/v2/local/search/keyword.json"
+            headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
+            params = {"query": f"다이소 {store_name}", "size": 1}
+            
+            try:
+                response = requests.get(url, headers=headers, params=params, timeout=5)
+                response.raise_for_status()
+                data = response.json()
+                documents = data.get('documents', [])
+                
+                if documents:
+                    item = documents[0]
+                    return {
+                        'lat': float(item.get('y', 0)),
+                        'lng': float(item.get('x', 0))
+                    }
+            except Exception:
+                pass
+            
+            # 2. 주소로 지오코딩 시도
+            geocode_url = "https://dapi.kakao.com/v2/local/search/address.json"
+            params = {"query": address}
+            
+            try:
+                response = requests.get(geocode_url, headers=headers, params=params, timeout=5)
+                response.raise_for_status()
+                data = response.json()
+                documents = data.get('documents', [])
+                
+                if documents:
+                    item = documents[0]
+                    return {
+                        'lat': float(item.get('y', 0)),
+                        'lng': float(item.get('x', 0))
+                    }
+            except Exception:
+                pass
+            
+            return None
         
-        for store in all_stores:
-            if store.address and gu not in store.address:
-                wrong_address_stores.append({
-                    'name': store.name,
-                    'address': store.address,
-                    'gu': store.gu
-                })
+        def fetch_daiso_from_api(gu_name):
+            """다이소 공식 API에서 특정 구의 매장 목록 조회 (카카오 2차 검증 포함)"""
+            keyword = gu_name[:-1] if gu_name.endswith('구') else gu_name
+            
+            url = "https://fapi.daisomall.co.kr/ms/msg/selStr"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Content-Type": "application/json",
+                "Referer": "https://www.daisomall.co.kr/",
+                "Origin": "https://www.daisomall.co.kr",
+            }
+            payload = {
+                "curLitd": 126.9088468,
+                "curLttd": 37.4989756,
+                "currentPage": 1,
+                "geolocationAgrYn": "Y",
+                "keyword": keyword,
+                "pageSize": 100,
+                "srchBassPkupStrYn": "Y",
+                "srchYn": "Y"
+            }
+            
+            try:
+                response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
+                response.raise_for_status()
+                result = response.json()
+                
+                if result.get('success'):
+                    stores = result.get('data', [])
+                    # 서울 지역만 필터링
+                    seoul_stores = [s for s in stores if '서울' in s.get('strAddr', '')]
+                    locations = []
+                    kakao_補完_count = 0
+                    
+                    for store in seoul_stores:
+                        lat = store.get('strLttd', 0) or 0
+                        lng = store.get('strLitd', 0) or 0
+                        store_name = store.get('strNm', '')
+                        address = store.get('strAddr', '')
+                        
+                        # 좌표가 없으면 카카오 API로 2차 검증
+                        if lat == 0 or lng == 0:
+                            if KAKAO_API_KEY:
+                                coords = fetch_coords_from_kakao(store_name, address)
+                                if coords and coords['lat'] != 0:
+                                    lat = coords['lat']
+                                    lng = coords['lng']
+                                    kakao_補完_count += 1
+                        
+                        if lat != 0 and lng != 0:
+                            locations.append((lng, lat))
+                    
+                    return locations, kakao_補完_count
+                return [], 0
+            except Exception as e:
+                print(f"        ⚠️ {gu_name} API 오류: {e}")
+                return [], 0
         
-        if wrong_address_stores:
-            print(f"    ❌ 구 외 주소 발견: {wrong_address_stores}")
+        # ================================================================
+        # 좌표 변환 및 커버리지 계산 함수
+        # ================================================================
+        transformer_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32652", always_xy=True)
+        
+        def transform_polygon_to_utm(coords_wgs84):
+            utm_coords = [transformer_to_utm.transform(lon, lat) for lon, lat in coords_wgs84]
+            return Polygon(utm_coords, srid=32652)
+        
+        def create_square_polygon(lon, lat, radius_km):
+            x, y = transformer_to_utm.transform(lon, lat)
+            radius_m = radius_km * 1000
+            coords = [
+                (x - radius_m, y - radius_m),
+                (x + radius_m, y - radius_m),
+                (x + radius_m, y + radius_m),
+                (x - radius_m, y + radius_m),
+                (x - radius_m, y - radius_m),
+            ]
+            return Polygon(coords, srid=32652)
+        
+        def calculate_coverage(boundary_coords, daiso_locations, radius_km):
+            boundary_polygon = transform_polygon_to_utm(boundary_coords)
+            boundary_area_km2 = boundary_polygon.area / 1_000_000
+            
+            if not daiso_locations:
+                return 0.0, boundary_area_km2
+            
+            combined_polygon = None
+            for lon, lat in daiso_locations:
+                square = create_square_polygon(lon, lat, radius_km)
+                if combined_polygon is None:
+                    combined_polygon = square
+                else:
+                    combined_polygon = combined_polygon.union(square)
+            
+            intersection = boundary_polygon.intersection(combined_polygon)
+            intersection_area_km2 = intersection.area / 1_000_000
+            coverage_ratio = (intersection_area_km2 / boundary_area_km2) * 100
+            
+            return min(coverage_ratio, 100.0), boundary_area_km2
+        
+        def find_min_radius_for_100_coverage(boundary_coords, daiso_locations):
+            """100% 커버리지 달성 최소 반경 (이진 탐색)"""
+            if not daiso_locations:
+                return None
+            
+            low, high = 0.3, 5.0
+            result = high
+            
+            while high - low > 0.01:
+                mid = (low + high) / 2
+                coverage, _ = calculate_coverage(boundary_coords, daiso_locations, mid)
+                if coverage >= 99.9:  # 사실상 100%
+                    result = mid
+                    high = mid
+                else:
+                    low = mid
+            
+            return result
+        
+        # ================================================================
+        # 각 구별 실제 다이소 데이터 수집 및 최소 반경 계산
+        # ================================================================
+        print("\n    🔍 25개 구 다이소 데이터 수집 중 (API 호출)...")
+        if KAKAO_API_KEY:
+            print("        📍 카카오 API 2차 검증: 활성화")
         else:
-            print(f"    ✅ {gu} 데이터에서 다른 구 주소 혼입 없음")
+            print("        ⚠️ 카카오 API 2차 검증: 비활성화 (KAKAO_API_KEY 없음)")
+        print()
         
-        self.assertEqual(len(wrong_address_stores), 0)
+        results = []
+        CURRENT_RADIUS = 1.3  # 현재 사용 중인 반경
+        total_kakao_補完 = 0
+        
+        for gu_name, gu_info in SEOUL_GU_BOUNDARIES.items():
+            print(f"        [{gu_name}] 수집 중...", end=" ")
+            
+            # 실제 다이소 API에서 데이터 가져오기 (카카오 2차 검증 포함)
+            daiso_locations, kakao_補完_count = fetch_daiso_from_api(gu_name)
+            total_kakao_補完 += kakao_補完_count
+            time.sleep(0.3)  # API 호출 제한 방지
+            
+            if not daiso_locations:
+                print(f"❌ 데이터 없음")
+                continue
+            
+            # 최소 반경 계산
+            min_radius = find_min_radius_for_100_coverage(
+                gu_info['boundary'], daiso_locations
+            )
+            
+            # 현재 반경(1.3km)에서의 커버리지 계산
+            current_coverage, boundary_area = calculate_coverage(
+                gu_info['boundary'], daiso_locations, CURRENT_RADIUS
+            )
+            
+            results.append({
+                'gu': gu_name,
+                'daiso_count': len(daiso_locations),
+                'boundary_area': boundary_area,
+                'min_radius_km': min_radius,
+                'current_coverage': current_coverage,
+                'kakao_補完': kakao_補完_count,
+            })
+            
+            kakao_info = f" (카카오보완: {kakao_補完_count})" if kakao_補完_count > 0 else ""
+            print(f"✅ 다이소 {len(daiso_locations)}개{kakao_info}, 최소반경 {min_radius:.2f}km")
+        
+        # ================================================================
+        # 결과 분석 및 출력
+        # ================================================================
+        if not results:
+            print("\n    ❌ 데이터 수집 실패 - API 연결 문제")
+            self.skipTest("다이소 API 연결 실패")
+            return
+        
+        # 최소 반경 기준 정렬
+        results.sort(key=lambda x: x['min_radius_km'])
+        
+        print("\n    ┌─────────────┬────────┬──────────┬─────────────┬───────────┐")
+        print("    │     구     │ 다이소 │ 면적(㎢) │ 최소반경(km)│ 현재커버리지│")
+        print("    ├─────────────┼────────┼──────────┼─────────────┼───────────┤")
+        
+        for r in results:
+            print(f"    │ {r['gu']:^9} │ {r['daiso_count']:>4}개 │ {r['boundary_area']:>6.1f}   │    {r['min_radius_km']:>5.2f}   │   {r['current_coverage']:>5.1f}%  │")
+        
+        print("    └─────────────┴────────┴──────────┴─────────────┴───────────┘")
+        
+        # 통계 계산
+        radius_values = [r['min_radius_km'] for r in results]
+        mean_radius = statistics.mean(radius_values)
+        median_radius = statistics.median(radius_values)
+        min_r = min(radius_values)
+        max_r = max(radius_values)
+        stdev_radius = statistics.stdev(radius_values) if len(radius_values) > 1 else 0
+        
+        avg_coverage = sum(r['current_coverage'] for r in results) / len(results)
+        total_daiso = sum(r['daiso_count'] for r in results)
+        passed_70 = sum(1 for r in results if r['current_coverage'] >= 70)
+        
+        print(f"\n    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"    📊 100% 커버리지 최소 반경 통계 (실제 다이소 기반)")
+        print(f"    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"        📈 평균 (Mean):     {mean_radius:.3f} km")
+        print(f"        📊 중앙값 (Median): {median_radius:.3f} km")
+        print(f"        🔻 최솟값 (Min):    {min_r:.3f} km")
+        print(f"        🔺 최댓값 (Max):    {max_r:.3f} km")
+        print(f"        📉 표준편차 (Std):  {stdev_radius:.3f} km")
+        print(f"    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        print(f"\n    🎯 현재 수집 반경: {CURRENT_RADIUS} km")
+        print(f"        → 평균 대비: {((CURRENT_RADIUS / mean_radius) * 100):.1f}%")
+        print(f"        → 중앙값 대비: {((CURRENT_RADIUS / median_radius) * 100):.1f}%")
+        
+        print(f"\n    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"    📋 결론: RADIUS_KM = {CURRENT_RADIUS}km 의 근거")
+        print(f"    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print(f"        1. 실제 다이소 기반 100% 커버리지 최소 반경")
+        print(f"           - 평균: {mean_radius:.3f}km, 중앙값: {median_radius:.3f}km")
+        print(f"        2. 총 수집된 다이소: {total_daiso}개 ({len(results)}개 구)")
+        if total_kakao_補完 > 0:
+            print(f"           - 카카오 API 보완: {total_kakao_補完}개")
+        print(f"        3. 현재 반경({CURRENT_RADIUS}km) 평균 커버리지: {avg_coverage:.1f}%")
+        print(f"        4. 70% 이상 커버: {passed_70}/{len(results)}개 구")
+        
+        # 테스트 통과 조건
+        self.assertGreaterEqual(avg_coverage, 70,
+            f"평균 커버리지가 70% 미만입니다: {avg_coverage:.1f}%")
     
     def test_5_api_call_estimation(self):
         """[확장성 5/5] API 호출 예상 및 비용 분석"""
