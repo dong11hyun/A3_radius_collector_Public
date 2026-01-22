@@ -1,10 +1,11 @@
 """
 카카오맵 폐업 매장 체크 프로그램
 
-카카오 API 편의점과 3개 데이터셋을 비교:
+카카오 API 편의점과 2개 데이터셋을 비교:
 1. SeoulRestaurantLicense (휴게음식점 인허가 - 편의점)
 2. TobaccoRetailLicense (담배소매점 인허가)
-3. public_data.csv (소상공인상권 데이터)
+
+public_data.csv (소상공인상권 데이터) (Default)기본값으로 영등포구에서만 사용!
 
 매칭 조건 (OR):
 - 이름이 일치하거나

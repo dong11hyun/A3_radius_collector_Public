@@ -70,37 +70,32 @@ def matched_stores_map(request):
 
 
 def store_closure_map_view(request):
-    """폐업 매장 체크 결과를 카카오맵에 표시"""
-    import os
-    import pandas as pd
-    
-    # CSV 파일 경로 (프로젝트 루트의 store_closure_result.csv)
-    csv_path = os.path.join(settings.BASE_DIR, 'store_closure_result.csv')
+    """폐업 매장 체크 결과를 카카오맵에 표시 (DB에서 읽기)"""
+    from .models import StoreClosureResult
     
     stores_list = []
     normal_count = 0
     closed_count = 0
     
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path, encoding='utf-8-sig')
-        
-        for _, row in df.iterrows():
-            # 위도/경도가 있는 경우만 추가
-            if pd.notna(row['위도']) and pd.notna(row['경도']):
-                status = row['상태']
-                if status == '정상':
-                    normal_count += 1
-                else:
-                    closed_count += 1
-                    
-                stores_list.append({
-                    'name': row['이름'],
-                    'address': row['주소'],
-                    'lat': float(row['위도']),
-                    'lng': float(row['경도']),
-                    'status': status,
-                    'match_reason': row['매칭이유']
-                })
+    # DB에서 데이터 읽기
+    closure_results = StoreClosureResult.objects.all()
+    
+    for store in closure_results:
+        if store.latitude and store.longitude:
+            status = store.status
+            if status == '정상':
+                normal_count += 1
+            else:
+                closed_count += 1
+                
+            stores_list.append({
+                'name': store.name,
+                'address': store.address,
+                'lat': float(store.latitude),
+                'lng': float(store.longitude),
+                'status': status,
+                'match_reason': store.match_reason
+            })
     
     context = {
         'stores_json': json.dumps(stores_list, ensure_ascii=False),
@@ -538,29 +533,29 @@ def check_status(request):
 
 @require_GET
 def get_results(request):
-    """수집 결과 반환 API"""
-    import pandas as pd
+    """수집 결과 반환 API (DB에서 읽기)"""
+    from .models import StoreClosureResult
     
-    csv_path = os.path.join(settings.BASE_DIR, 'store_closure_result.csv')
+    target_gu = collection_status.get('target_gu', '영등포구')
     stores_list = []
     
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path, encoding='utf-8-sig')
-        
-        for _, row in df.iterrows():
-            if pd.notna(row['위도']) and pd.notna(row['경도']):
-                stores_list.append({
-                    'name': row['이름'],
-                    'address': row['주소'],
-                    'lat': float(row['위도']),
-                    'lng': float(row['경도']),
-                    'status': row['상태'],
-                    'match_reason': row['매칭이유']
-                })
+    # DB에서 데이터 읽기 (target_gu 필터)
+    closure_results = StoreClosureResult.objects.filter(gu=target_gu)
+    
+    for store in closure_results:
+        if store.latitude and store.longitude:
+            stores_list.append({
+                'name': store.name,
+                'address': store.address,
+                'lat': float(store.latitude),
+                'lng': float(store.longitude),
+                'status': store.status,
+                'match_reason': store.match_reason
+            })
     
     return JsonResponse({
         'stores': stores_list,
-        'target_gu': collection_status.get('target_gu', '영등포구')
+        'target_gu': target_gu
     })
 
 
