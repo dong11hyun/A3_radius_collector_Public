@@ -691,6 +691,8 @@
         let markers = [];
         let rectangles = [];
         let pollingInterval = null;
+        let userInteracted = false;  // 사용자가 지도 조작했는지 플래그
+        let initialBoundsSet = false; // 첫 bounds 설정 여부
 
         // 지도 초기화
         function initMap() {
@@ -710,6 +712,14 @@
                         level: 6
                     };
                     map = new kakao.maps.Map(container, options);
+
+                    // 사용자 지도 조작 감지 이벤트
+                    kakao.maps.event.addListener(map, 'zoom_changed', function () {
+                        userInteracted = true;
+                    });
+                    kakao.maps.event.addListener(map, 'dragend', function () {
+                        userInteracted = true;
+                    });
                 });
             };
             document.head.appendChild(script);
@@ -759,7 +769,11 @@
                 });
             });
 
-            map.setBounds(bounds);
+            // 첫 시각화 시에만 bounds 설정, 사용자 조작 후에는 유지
+            if (!initialBoundsSet || !userInteracted) {
+                map.setBounds(bounds);
+                initialBoundsSet = true;
+            }
         }
 
         // 상태 가져오기
