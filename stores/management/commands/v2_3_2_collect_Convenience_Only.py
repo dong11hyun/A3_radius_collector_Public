@@ -43,6 +43,12 @@ class Command(BaseCommand):
             default=1.8,
             help='탐색 반경 (km, 이전: 1.3km >>> (상위10개)통계값 바탕: 1.8km)'
         )
+        parser.add_argument(
+            '--async',
+            action='store_true',
+            dest='use_async',
+            help='비동기 병렬 수집 모드 (4분면 동시 호출, 75% 성능 개선)'
+        )
 
     def is_target_gu(self, address, target_gu):
         """
@@ -89,10 +95,19 @@ class Command(BaseCommand):
             ))
             return
         
+        use_async = options.get('use_async', False)
+        
         self.stdout.write(self.style.SUCCESS(
             f"총 {total_daiso_count}개의 {target_gu} 다이소에 대해 편의점 수집을 시작합니다."
         ))
         self.stdout.write(f"탐색 반경: {radius_km}km")
+        if use_async:
+            self.stdout.write(self.style.WARNING("🚀 비동기 모드 활성화 (4분면 동시 호출)"))
+        
+        # 비동기 모드 분기
+        if use_async:
+            self._handle_async(KAKAO_API_KEY, daiso_list, target_gu, radius_km, total_daiso_count)
+            return
 
         # 반경에 따른 위도/경도 차이 계산 (근사치)
         DELTA_LAT = 0.0090 * radius_km  
@@ -227,4 +242,77 @@ class Command(BaseCommand):
         if wrong_gu_count > 0:
             self.stdout.write(self.style.WARNING(
                 f"⚠️ {target_gu} 아닌 편의점 {wrong_gu_count}개가 DB에 있습니다."
+            ))
+
+    def _handle_async(self, api_key, daiso_list, target_gu, radius_km, total_daiso_count):
+        """
+        비동기 모드 편의점 수집 핸들러
+        
+        4분면 동시 호출로 성능 75% 개선
+        """
+        import time as time_module
+        from django.db import transaction
+        from .async_collector import run_async_collection
+        
+        start_time = time_module.time()
+        
+        # 진행 상황 콜백
+        def progress_callback(idx, total, daiso_name, count):
+            self.stdout.write(f"[{idx}/{total}] '{daiso_name}' → {count}개 수집")
+        
+        self.stdout.write(self.style.WARNING("비동기 수집 시작..."))
+        
+        # 비동기 수집 실행
+        stores, stats = run_async_collection(
+            api_key=api_key,
+            daiso_list=daiso_list,
+            target_gu=target_gu,
+            radius_km=radius_km
+        )
+        
+        # DB 저장 (bulk upsert)
+        stored_count = 0
+        for item in stores:
+            try:
+                lng = float(item.get('x'))
+                lat = float(item.get('y'))
+                point = Point(lng, lat)
+                address = item.get('road_address_name') or item.get('address_name', '')
+                
+                with transaction.atomic():
+                    YeongdeungpoConvenience.objects.update_or_create(
+                        place_id=item.get('id'),
+                        defaults={
+                            'name': item.get('place_name'),
+                            'address': address,
+                            'phone': item.get('phone'),
+                            'location': point,
+                            'distance': int(item.get('distance', 0)),
+                            'base_daiso': item.get('_base_daiso', ''),
+                            'gu': target_gu,
+                        }
+                    )
+                stored_count += 1
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"저장 실패: {e}"))
+        
+        elapsed = time_module.time() - start_time
+        
+        # 최종 통계
+        convenience_count = YeongdeungpoConvenience.objects.filter(gu=target_gu).count()
+        
+        self.stdout.write(self.style.SUCCESS(f"""
+--- 🚀 비동기 수집 완료 ---
+  ⏱️ 소요 시간: {elapsed:.2f}초
+  📡 API 호출: {stats['api_calls']}회
+  ✅ DB 저장: {stored_count}개
+  ⚠️ 스킵 ({target_gu} 아님): {stats['skipped_count']}개
+
+📊 현재 DB 상태:
+  - {target_gu} 편의점: {convenience_count}개
+        """))
+        
+        if stats['errors']:
+            self.stdout.write(self.style.WARNING(
+                f"⚠️ 에러 {len(stats['errors'])}건: {stats['errors'][:3]}"
             ))

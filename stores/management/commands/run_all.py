@@ -81,7 +81,7 @@ class Command(BaseCommand):
         if not options['skip_convenience']:
             self.stdout.write(self.style.WARNING(f"\n🏪 [2/5] {target_gu} 편의점 수집..."))
             try:
-                call_command('v2_3_2_collect_Convenience_Only', gu=target_gu, clear=True)
+                call_command('v2_3_2_collect_Convenience_Only', gu=target_gu, clear=True, use_async=True)
                 self.stdout.write(self.style.SUCCESS("  ✅ 편의점 수집 완료"))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"  ❌ 편의점 수집 실패: {e}"))

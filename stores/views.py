@@ -388,7 +388,7 @@ def run_collection_task(target_gu):
         collection_status['metrics']['stages']['convenience']['status'] = 'running'
         add_log(f'[2/5] 편의점 수집 시작 (4분면 검색)', 'INFO')
         
-        call_command('v2_3_2_collect_Convenience_Only', gu=target_gu, clear=True)
+        call_command('v2_3_2_collect_Convenience_Only', gu=target_gu, clear=True, use_async=True)
         
         conv_count = YeongdeungpoConvenience.objects.filter(gu=target_gu).count()
         stage_time = round(time_module.time() - stage_start, 2)
