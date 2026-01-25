@@ -1,8 +1,0 @@
-{
-    "[csv]": {
-        "files.encoding": "cp949"
-    },
-    "files.associations": {
-        "*.csv": "csv"
-    }
-}
