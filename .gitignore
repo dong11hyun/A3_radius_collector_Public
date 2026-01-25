@@ -4,6 +4,7 @@
 venv/
 env/
 .env
+.vscode
 
 # 2. 파이썬 임시 파일들 (필요 없음)
 __pycache__/
